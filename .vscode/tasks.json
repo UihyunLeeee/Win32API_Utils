@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Win32 API Build (GCC)",
+            "type": "shell",
+            "command": "g++", // C++ 컴파일 시 g++, C 컴파일 시 gcc
+            "args": [
+                "-g", // 디버깅 정보 포함
+                "${file}", // 현재 열려있는 파일
+                "-o",
+                "${fileDirname}\\${fileBasenameNoExtension}.exe", // 출력 파일 (예: main.exe)
+                // Win32 API 사용에 필요한 라이브러리 링크
+                "-mwindows",     // 콘솔 창 없이 실행
+                "-municode",
+                "-luser32",
+                "-lgdi32",
+                "-lkernel32",
+                "-lcomctl32",    // Common Controls 사용 시
+                "-lws2_32"       // Winsock 사용 시
+                // 필요한 다른 라이브러리 추가
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true // Ctrl+Shift+B 로 실행될 기본 빌드 작업
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

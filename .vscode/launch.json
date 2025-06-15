@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Win32 Debug (GDB)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe", // 실행할 프로그램
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false, // true로 하면 디버깅 시 새 콘솔 창이 뜸
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/mingw64/bin/gdb.exe", // MinGW gdb 경로
+            "setupCommands": [
+                {
+                    "description": "gdb에 대해 자동 서식 지정 사용",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Win32 API Build (GCC)" // 디버깅 시작 전 실행할 빌드 작업 (tasks.json의 label과 일치)
+        }
+    ]
+}
