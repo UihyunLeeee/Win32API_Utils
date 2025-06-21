@@ -3,9 +3,21 @@
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
+wchar_t *buf;
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
 {
+#ifdef MY_APP_DEBUG_MODE
+    ConsoleDebugger debugger;
+    if (!debugger.IsValid())
+    {
+        debugger.PrintErrorMsg(L"Failed to initialize console debugger.");
+        return -1;
+    }
+    debugger.PrintErrorMsg(L"Console debugger initialized successfully.");
+#endif
+
     const wchar_t CLASS_NAME[] = L"Sample Window Class";
 
     WNDCLASSW wc = { };
