@@ -39,15 +39,15 @@ private:
 public:
     GetAllWindowsInfo()
     {
-        EnumWindows(EnumWindowsProc, NULL);
+        //EnumWindows(EnumWindowsProc, NULL);
     }
 
-    BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
-    {   
-        GetWindowsInfo windowInfo(hwnd);
-        windowsInfo.push_back(windowInfo);
-        return TRUE;
-    }   
+    //BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
+    //{   
+    //    GetWindowsInfo windowInfo(hwnd);
+    //    windowsInfo.push_back(windowInfo);
+    //    return TRUE;
+    //}   
 
     const vector<GetWindowsInfo>& GetWindows() const { return windowsInfo; }
 };
