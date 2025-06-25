@@ -5,7 +5,11 @@
             "name": "Win32 Debug (GDB)",
             "type": "cppdbg",
             "request": "launch",
+<<<<<<< HEAD
             "program": "c:\\win32api\\bin\\WindowLocator.exe", // 실행할 프로그램
+=======
+            "program": "${workspaceFolder}/bin/WindowLocator.exe", // 실행할 프로그램
+>>>>>>> 746ec2e1b2098ecd912924298f66919382feb61e
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
