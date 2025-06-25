@@ -4,50 +4,30 @@
 
 using namespace std;
 
-class GetWindowsInfo
+class WindowInfo
 {
 private:
-    HWND hWnd;
-    wstring windowTitle;
-    RECT windowRect;
+    HWND m_hwnd;                // The window's unique handle
+    std::wstring m_windowTitle; // The window's title text
+    RECT m_windowRect;          // The window's position and size
+
 public:
-    GetWindowsInfo(HWND hwnd) : hWnd(hwnd)
-    {
-        const int titleLength = GetWindowTextLengthW(hWnd);
-        if (titleLength > 0)
-        {
-            vector<wchar_t> buffer(titleLength + 1);
-            GetWindowTextW(hWnd, buffer.data(), titleLength + 1);
-            windowTitle = wstring(buffer.data());
-        }
-        else
-        {
-            windowTitle = L"";
-        }
+    // Constructor: Takes a window handle and gathers all information about it.
+    WindowInfo(HWND hwnd);
 
-        GetWindowRect(hWnd, &windowRect);
-    }
-
-    wstring GetTitle() const { return windowTitle; }
-    RECT GetRect() const { return windowRect; }
+    // Getter Functions: Safely access the private member variables.
+    HWND GetHandle() const;
+    std::wstring GetTitle() const;
+    RECT GetRect() const;
 };
 
-class GetAllWindowsInfo
+class WindowInfoManager
 {
 private:
-    vector<GetWindowsInfo> windowsInfo;
+    std::vector<WindowInfo> m_windows; 
+    static BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam);
+
 public:
-    GetAllWindowsInfo()
-    {
-        EnumWindows(EnumWindowsProc, NULL);
-    }
-
-    BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
-    {   
-        GetWindowsInfo windowInfo(hwnd);
-        windowsInfo.push_back(windowInfo);
-        return TRUE;
-    }   
-
-    const vector<GetWindowsInfo>& GetWindows() const { return windowsInfo; }
+    WindowInfoManager();
+    const std::vector<WindowInfo>& GetAllWindows() const;
 };

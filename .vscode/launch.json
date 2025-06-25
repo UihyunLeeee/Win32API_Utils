@@ -5,7 +5,7 @@
             "name": "Win32 Debug (GDB)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe", // 실행할 프로그램
+            "program": "c:\\win32api\\bin\\WindowLocator.exe", // 실행할 프로그램
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -20,7 +20,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Win32 API Build (GCC)" // 디버깅 시작 전 실행할 빌드 작업 (tasks.json의 label과 일치)
+            "preLaunchTask": "Build Project (using Makefile)"
         }
     ]
 }
