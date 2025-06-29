@@ -1,15 +1,15 @@
 #include "config.h"
 #include "Util.h"
+#include "GetWindowsInfo.h"
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-
+ConsoleDebugger debugger;
 wchar_t *buf;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
 {
 #ifdef MY_APP_DEBUG_MODE
-    ConsoleDebugger debugger;
     if (!debugger.IsValid())
     {
         debugger.PrintErrorMsg(L"Failed to initialize console debugger.");
@@ -64,12 +64,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    HDC hdc;
-    PAINTSTRUCT ps;
-    int len;
-
     switch (uMsg)
     {
+        case WM_CREATE:
+        {
+            uh_WindowInfoManager manager;
+            manager.SetAllWindowsInfo();
+            //for(size_t i = 0; i < manager.GetWindowCount(); ++i)
+            //{
+            //    debugger.PrintErrorMsg(manager.GetwindowInfo(i).c_str());
+            //}   
+            break;
+        }
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
