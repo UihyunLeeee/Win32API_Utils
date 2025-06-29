@@ -3,20 +3,16 @@
 
 uh_WindowInfo::uh_WindowInfo(HWND hwnd) : m_hwnd(hwnd), m_executeFile(L""), m_windowRect({0, 0, 0, 0})
 {
-    // First, ensure the window handle is still valid to prevent race conditions.
     if (!IsWindow(m_hwnd))
     {
         return;
     }
     
-    // Get the process ID associated with the window.
     DWORD processId = 0;
     GetWindowThreadProcessId(m_hwnd, &processId);
 
-    // If we have a valid process ID, try to get the executable path.
     if (processId != 0)
     {
-        // Use NULL with Win32 API functions for maximum compatibility.
         HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
         if (hProcess != NULL)
         {
@@ -27,9 +23,8 @@ uh_WindowInfo::uh_WindowInfo(HWND hwnd) : m_hwnd(hwnd), m_executeFile(L""), m_wi
             }
             CloseHandle(hProcess);
         }
-        // If OpenProcess fails (e.g., for a protected system process), m_executeFile will remain empty.
     }
-    // Always get the window rectangle, even if getting the path fails.
+
     GetWindowRect(m_hwnd, &m_windowRect);
 }
 
