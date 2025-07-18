@@ -6,4 +6,4 @@
 // To compile in RELEASE mode, comment out this line.
 #include <windows.h> // Include Windows header for HANDLE and other types. 
 #define MY_APP_DEBUG_MODE
-#define MY_APP_RELEASE_MODE
+//#define MY_APP_RELEASE_MODE

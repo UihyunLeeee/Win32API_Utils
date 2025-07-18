@@ -71,7 +71,9 @@ void ShowContextMenu(HWND hWnd)
     if (hMenu) 
     {
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_GETINFO, L"Save Window Layout");
+        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN_LIST, L"Open Window List");
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_SETSIZE, L"Restore Window Layout");
+        InsertMenuW(hMenu, -1, MF_SEPARATOR, 0, NULL);
         InsertMenuW(hMenu, -1, MF_SEPARATOR, 0, NULL);
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"Exit");
 
@@ -131,6 +133,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         debugger.PrintErrorMsg(L"Failed to save window layout.");
                     }
                     debugger.PrintErrorMsg(L"--- Layout Saved ---");
+                    break;
+                }
+            case ID_TRAY_OPEN_LIST:
+                {
+                    debugger.PrintErrorMsg(L"--- Opening window_list.txt ---");
+
+                    wchar_t exePathBuf[MAX_PATH] = { 0 };
+                    GetModuleFileNameW(NULL, exePathBuf, MAX_PATH);
+
+                    std::wstring exePath(exePathBuf);
+                    size_t last_slash_idx = exePath.find_last_of(L"\\/");
+                    std::wstring dirPath;
+                    if (std::wstring::npos != last_slash_idx)
+                    {
+                        dirPath = exePath.substr(0, last_slash_idx + 1);
+                    }
+                    std::wstring filePath = dirPath + L"windows_list.txt";
+
+                    // Use ShellExecuteW to open the file with the default associated program.
+                    HINSTANCE result = ShellExecuteW(NULL, L"open", filePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                    if ((INT_PTR)result <= 32) {
+                        debugger.PrintErrorMsg((L"Failed to open file: " + filePath).c_str());
+                    }
                     break;
                 }
             case ID_TRAY_SETSIZE:
