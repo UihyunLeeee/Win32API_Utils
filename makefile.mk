@@ -8,7 +8,7 @@ CXXFLAGS := -g -std=c++17 -Wall -Isrc
 # Linker flags (for linking .o to .exe)
 LDFLAGS := -mwindows -municode
 # Libraries needed for Win32 API
-LIBS := -luser32 -lgdi32 -lkernel32 -lcomctl32 -lws2_32 -lpsapi -lshell32 -lole32 -luuid
+LIBS := -luser32 -lgdi32 -lkernel32 -lcomctl32 -lws2_32 -lpsapi -lshell32 -lole32
 # The name of our final program
 EXECUTABLE := bin/WindowLocator.exe
 

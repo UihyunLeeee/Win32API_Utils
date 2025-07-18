@@ -7,6 +7,7 @@
 // Constructor implementation
 ConsoleDebugger::ConsoleDebugger() : m_hConsole(NULL), m_status(Status::Success)
 {
+#ifdef MY_APP_DEBUG_MODE
     if (AllocConsole())
     {
         m_hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -17,7 +18,7 @@ ConsoleDebugger::ConsoleDebugger() : m_hConsole(NULL), m_status(Status::Success)
             return;
         }
 
-        FILE* pDummy;
+        FILE *pDummy;
         if (freopen_s(&pDummy, "CONOUT$", "w", stdout) != 0 ||
             freopen_s(&pDummy, "CONIN$", "r", stdin) != 0)
         {
@@ -31,6 +32,7 @@ ConsoleDebugger::ConsoleDebugger() : m_hConsole(NULL), m_status(Status::Success)
     {
         m_status = Status::Error_FailedToAllocConsole;
     }
+#endif
 }
 
 // Destructor implementation
@@ -61,7 +63,9 @@ HANDLE ConsoleDebugger::GetHandle() const
 // PrintErrorMsg implementation with timestamp
 void ConsoleDebugger::PrintErrorMsg(const wchar_t* message) const
 {
-    if (!this->IsValid()) {
+#ifdef MY_APP_DEBUG_MODE
+    if (!this->IsValid())
+    {
         return;
     }
 
@@ -89,6 +93,10 @@ void ConsoleDebugger::PrintErrorMsg(const wchar_t* message) const
         full_message.c_str(),
         (DWORD)full_message.length(),
         &chars_written,
-        NULL
-    );
+        NULL);
+#endif
 }
+
+/**************** Global Instance ****************/
+
+ConsoleDebugger debugger;

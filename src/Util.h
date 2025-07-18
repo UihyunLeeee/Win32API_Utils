@@ -27,3 +27,5 @@ public:
     HANDLE GetHandle() const;
     void PrintErrorMsg(const wchar_t* message) const;
 };
+
+extern ConsoleDebugger debugger; // Declare the global instance

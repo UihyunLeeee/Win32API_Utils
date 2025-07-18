@@ -1,0 +1,5 @@
+// Microsoft Windows Resource Script
+
+#include "resource.h"
+
+IDI_MYICON ICON "app.ico"

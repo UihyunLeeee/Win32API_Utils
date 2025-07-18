@@ -1,3 +1,4 @@
 {
     "makefile.configureOnOpen": true
+    "editor.rulers" : [80],
 }
