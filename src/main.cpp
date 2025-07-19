@@ -3,6 +3,7 @@
 #include "GetWindowsInfo.h"
 #include <shellapi.h>
 #include "resource.h"
+#include "HookManager.h"
 
 #define  WM_TRAYICON (WM_APP + 1)
 
@@ -10,6 +11,8 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 uh_WindowInfoManager g_windowManager; // Make the manager global to persist state
 NOTIFYICONDATAW nid = {};
 HINSTANCE g_hInst; 
+
+HookManager g_hookManager; // Global hook manager instance
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
@@ -74,7 +77,6 @@ void ShowContextMenu(HWND hWnd)
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN_LIST, L"Open Window List");
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_SETSIZE, L"Restore Window Layout");
         InsertMenuW(hMenu, -1, MF_SEPARATOR, 0, NULL);
-        InsertMenuW(hMenu, -1, MF_SEPARATOR, 0, NULL);
         InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"Exit");
 
         SetMenuDefaultItem(hMenu, ID_TRAY_GETINFO, FALSE);
@@ -90,6 +92,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CREATE:
         {
+            /********** Create Tray Icon **********/
             nid.cbSize = sizeof(NOTIFYICONDATA);
             nid.hWnd = hWnd;
             nid.uID = 100; 
@@ -104,6 +107,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             wcscpy_s(nid.szTip, L"UH Tools");
 
             Shell_NotifyIconW(NIM_ADD, &nid);
+
+            /********** Hooker *********/
+            g_hookManager.InstallHook(hWnd);
+        
             break;
         }
         case WM_TRAYICON:
@@ -176,6 +183,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         case WM_DESTROY:
             Shell_NotifyIconW(NIM_DELETE, &nid); 
+            g_hookManager.UninstallHook(); 
             PostQuitMessage(0);
             break;
     }

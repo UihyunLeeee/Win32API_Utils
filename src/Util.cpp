@@ -1,3 +1,4 @@
+#include "config.h"
 #include "Util.h"    // Include the class declaration
 #include <stdio.h>   // For freopen_s
 #include <locale.h>  // For _wsetlocale
