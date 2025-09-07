@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <string>
 
+#if 0
 namespace uhConsole
 {
     // These are declared here with 'extern' and defined in uhConsole.cpp
@@ -12,3 +13,4 @@ namespace uhConsole
     void CreateConsoleTab(HWND hPage, HINSTANCE ghInst);
     void AppendTextToConsole(const wchar_t *text);
 }   // namespace uhConsole
+#endif

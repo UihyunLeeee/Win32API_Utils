@@ -96,14 +96,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             CreateTabPages(hWnd);
 
             //Create the console window
-            uhConsole::CreateConsoleTab(hWnd, ghInst);
-            if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput ) 
-            {
-                MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
-                    MB_ICONERROR | MB_OK);
-                return -1;
-            }
-            uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
+            //uhConsole::CreateConsoleTab(hWnd, ghInst);
+            //if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput ) 
+            //{
+            //    MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
+            //        MB_ICONERROR | MB_OK);
+            //    return -1;
+            //}
+            //uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
         }
         return 0;
 
@@ -201,11 +201,11 @@ void OnSize(HWND hwnd, UINT state, int cx, int cy)
         int inputHeight = 30;
         int padding = 5;
         // Resize output window
-        MoveWindow(uhConsole::hConsoleOutput, 0, page_h*0.8 + padding,
-                   rcTab.right - rcTab.left, page_h*0.2 - padding, TRUE);
-        // Resize input window
-        MoveWindow(uhConsole::hConsoleInput, padding, page_h - inputHeight - padding,
-                   page_w - 2 * padding, inputHeight, TRUE);
+        //MoveWindow(uhConsole::hConsoleOutput, 0, page_h*0.8 + padding,
+        //           rcTab.right - rcTab.left, page_h*0.2 - padding, TRUE);
+        //// Resize input window
+        //MoveWindow(uhConsole::hConsoleInput, padding, page_h - inputHeight - padding,
+        //           page_w - 2 * padding, inputHeight, TRUE);
     }
 }
 

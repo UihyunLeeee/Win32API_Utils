@@ -1,6 +1,7 @@
 #include "uhConsole.h"
 #include <vector>
 
+#if 0
 namespace uhConsole
 {
     HWND hConsoleOutput = NULL;
@@ -65,3 +66,4 @@ namespace uhConsole
         SendMessage(hConsoleInput, WM_SETFONT, (WPARAM)hFont, TRUE);
     }
 } // namespace uhConsole
+#endif
