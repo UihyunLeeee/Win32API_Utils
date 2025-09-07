@@ -1,5 +1,0 @@
-﻿
-Executable: C:\Windows\explorer.exe
-Title: bin - File Explorer
-Position: (76, 151)
-Size: (1342, 801)

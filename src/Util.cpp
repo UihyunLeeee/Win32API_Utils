@@ -20,8 +20,9 @@ ConsoleDebugger::ConsoleDebugger() : m_hConsole(NULL), m_status(Status::Success)
         }
 
         FILE *pDummy;
-        if (freopen_s(&pDummy, "CONOUT$", "w", stdout) != 0 ||
-            freopen_s(&pDummy, "CONIN$", "r", stdin) != 0)
+        // Use the wide-character version of freopen_s for Unicode consistency.
+        if (_wfreopen_s(&pDummy, L"CONOUT$", L"w", stdout) != 0 ||
+            _wfreopen_s(&pDummy, L"CONIN$", L"r", stdin) != 0)
         {
             m_status = Status::Error_FailedToGetHandle;
             return;

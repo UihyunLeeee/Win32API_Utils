@@ -1,192 +1,242 @@
 #include "config.h"
 #include "Util.h"
-#include "GetWindowsInfo.h"
-#include <shellapi.h>
-#include "resource.h"
-#include "HookManager.h"
+#include <commctrl.h> // For Tab Controls
 
-#define  WM_TRAYICON (WM_APP + 1)
+#include <string> // For std::wstring
 
+#include "Monitoring.h"
+#include "uhConsole.h"
+
+// Function Prototypes
+HINSTANCE ghInst;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-uh_WindowInfoManager g_windowManager; // Make the manager global to persist state
-NOTIFYICONDATAW nid = {};
-HINSTANCE g_hInst; 
+HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst);
+void CreateTabPages(HWND hWndParent);
+void OnSize(HWND hwnd, UINT state, int cx, int cy);
+void OnNotify(HWND hwnd, LPARAM lParam);
 
-HookManager g_hookManager; // Global hook manager instance
+// Global Variables
+HWND g_hTab; // Handle to the tab control
+
+// --- REFACTORED: Use an array for tab pages for better scalability ---
+const int NUM_TABS = 5;
+HWND g_hPages[NUM_TABS];
+HWND g_hCurrentPage; 
+HWND g_hConsol; 
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
 {
-    g_hInst = hInstance; 
-
-#ifdef MY_APP_DEBUG_MODE
-    if (!debugger.IsValid())
+    if (debugger.IsValid())
     {
-        debugger.PrintErrorMsg(L"Failed to initialize console debugger.");
-        return -1;
+        // The new GUI console will be used for output.
     }
-    debugger.PrintErrorMsg(L"Console debugger initialized successfully.");
-#endif
 
-    const wchar_t CLASS_NAME[] = L"UH_Tools";
+    ghInst = hInstance;
 
-    WNDCLASSW wc = { };
-    wc.lpfnWndProc   = WndProc;
-    wc.hInstance     = hInstance;
+    INITCOMMONCONTROLSEX icex;
+    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icex.dwICC = ICC_TAB_CLASSES;
+    InitCommonControlsEx(&icex);
+
+    const wchar_t CLASS_NAME[] = L"Sample Window Class";
+
+    WNDCLASSW wc = {};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
     wc.lpszClassName = CLASS_NAME;
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
 
     if (!RegisterClassW(&wc))
     {
-        MessageBoxW(NULL, L"Window Registration Failed!", L"Error", MB_ICONERROR | MB_OK);
+        MessageBoxW(NULL, L"Window Registration Failed!", L"Error",
+            MB_ICONERROR | MB_OK);
         return 0;
     }
 
     HWND hWnd = CreateWindowExW(
-        0,
-        CLASS_NAME,
-        L"UH Tools",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        NULL, NULL, hInstance, NULL
-    );
+        0, CLASS_NAME, L"Tab Window Application", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, // Start with a default size
+        NULL, NULL, hInstance, NULL);
 
     if (hWnd == NULL)
     {
+        MessageBoxW(NULL, L"Window Creation Failed!", L"Error",
+            MB_ICONERROR | MB_OK);
         return 0;
     }
 
-    MSG msg = { };
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
+    ShowWindow(hWnd, SW_SHOWMAXIMIZED);
+    UpdateWindow(hWnd);
+
+    MSG msg = {};
+    while (GetMessageW(&msg, NULL, 0, 0) > 0)
     {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        DispatchMessageW(&msg);
     }
 
     return (int)msg.wParam;
-}
-
-void ShowContextMenu(HWND hWnd)
-{
-    POINT pt;
-    GetCursorPos(&pt); 
-
-    HMENU hMenu = CreatePopupMenu();
-    if (hMenu) 
-    {
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_GETINFO, L"Save Window Layout");
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN_LIST, L"Open Window List");
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_SETSIZE, L"Restore Window Layout");
-        InsertMenuW(hMenu, -1, MF_SEPARATOR, 0, NULL);
-        InsertMenuW(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"Exit");
-
-        SetMenuDefaultItem(hMenu, ID_TRAY_GETINFO, FALSE);
-
-        TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, NULL);
-        DestroyMenu(hMenu);
-    }
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
-        case WM_CREATE:
+    case WM_CREATE:
         {
-            /********** Create Tray Icon **********/
-            nid.cbSize = sizeof(NOTIFYICONDATA);
-            nid.hWnd = hWnd;
-            nid.uID = 100; 
-            nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-            nid.uCallbackMessage = WM_TRAYICON; 
-            nid.hIcon = (HICON)LoadImageW(g_hInst, MAKEINTRESOURCEW(IDI_MYICON), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
-            if (nid.hIcon == NULL)
-            {
-                nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-                debugger.PrintErrorMsg(L"Failed to load custom icon from resources. Falling back to default icon.");
+            // Create the tab control and pages
+            g_hTab = CreateTabControl(hWnd, ghInst);
+            if (!g_hTab) {
+                MessageBoxW(hWnd, L"Tab Control Creation Failed!", L"Error",
+                    MB_ICONERROR | MB_OK);
+                return -1;
             }
-            wcscpy_s(nid.szTip, L"UH Tools");
+            CreateTabPages(hWnd);
 
-            Shell_NotifyIconW(NIM_ADD, &nid);
-
-            /********** Hooker *********/
-            g_hookManager.InstallHook(hWnd);
-        
-            break;
-        }
-        case WM_TRAYICON:
-        {
-            switch (lParam)
+            //Create the console window
+            uhConsole::CreateConsoleTab(hWnd, ghInst);
+            if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput ) 
             {
-            case WM_RBUTTONUP:
-                ShowContextMenu(hWnd);
-                break;
+                MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
+                    MB_ICONERROR | MB_OK);
+                return -1;
             }
-            break;
+            uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
         }
-    case WM_COMMAND:
-        {
-            switch (LOWORD(wParam))
-            {
-            case ID_TRAY_GETINFO:
-                {
-                    debugger.PrintErrorMsg(L"--- Saving Current Window Layout ---");
-                    const size_t windowCount = g_windowManager.RefreshWindowsList();
-                    if(g_windowManager.SaveWindowsListToFile())
-                    {
-                        debugger.PrintErrorMsg((L"Saved " + std::to_wstring(windowCount) + L" windows.").c_str());
-                    }
-                    else
-                    {
-                        debugger.PrintErrorMsg(L"Failed to save window layout.");
-                    }
-                    debugger.PrintErrorMsg(L"--- Layout Saved ---");
-                    break;
-                }
-            case ID_TRAY_OPEN_LIST:
-                {
-                    debugger.PrintErrorMsg(L"--- Opening window_list.txt ---");
+        return 0;
 
-                    wchar_t exePathBuf[MAX_PATH] = { 0 };
-                    GetModuleFileNameW(NULL, exePathBuf, MAX_PATH);
+    case WM_SIZE:
+        OnSize(hWnd, (UINT)wParam, LOWORD(lParam), HIWORD(lParam));
+        return 0;
 
-                    std::wstring exePath(exePathBuf);
-                    size_t last_slash_idx = exePath.find_last_of(L"\\/");
-                    std::wstring dirPath;
-                    if (std::wstring::npos != last_slash_idx)
-                    {
-                        dirPath = exePath.substr(0, last_slash_idx + 1);
-                    }
-                    std::wstring filePath = dirPath + L"windows_list.txt";
+    case WM_NOTIFY:
+        OnNotify(hWnd, lParam);
+        return 0;
 
-                    // Use ShellExecuteW to open the file with the default associated program.
-                    HINSTANCE result = ShellExecuteW(NULL, L"open", filePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
-                    if ((INT_PTR)result <= 32) {
-                        debugger.PrintErrorMsg((L"Failed to open file: " + filePath).c_str());
-                    }
-                    break;
-                }
-            case ID_TRAY_SETSIZE:
-                {
-                    debugger.PrintErrorMsg(L"--- Restoring Window Layout ---");
-                    g_windowManager.RefreshWindowsList();
-                    g_windowManager.ArrangeWindows();
-                    debugger.PrintErrorMsg(L"--- Layout Restored ---");
-                    break;
-                }
-            case ID_TRAY_EXIT:
-                {
-                    DestroyWindow(hWnd);
-                    break;
-                }
-            }
-            break;
-        }
-        case WM_DESTROY:
-            Shell_NotifyIconW(NIM_DELETE, &nid); 
-            g_hookManager.UninstallHook(); 
-            PostQuitMessage(0);
-            break;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
     }
 
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+}
+
+HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst)
+{
+    RECT rcClient;
+    GetClientRect(hWndParent, &rcClient);
+
+    HWND hWndTab = CreateWindowExW(
+        0, WC_TABCONTROLW, L"",
+        WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE,
+        0, 0, rcClient.right, rcClient.bottom,
+        hWndParent, NULL, hInst, NULL);
+
+    if (!hWndTab) 
+        return NULL;
+
+    TCITEMW tie = {};
+    tie.mask = TCIF_TEXT;
+
+    const wchar_t* tabLabels[] = 
+        {L"Current Monitoring", L"Speed Offset", L"Anti Roll", L"Anti Dive", L"Anti Squat"};
+
+    for (int i = 0; i < NUM_TABS; ++i)
+    {
+        tie.pszText = (LPWSTR)tabLabels[i];
+        SendMessageW(hWndTab, TCM_INSERTITEMW, (WPARAM)i, (LPARAM)&tie);
+    }
+
+    return hWndTab;
+}
+
+void CreateTabPages(HWND hWndParent)
+{
+    // Create page containers (simple STATIC windows)
+    g_hPages[0] = CreateWindowExW(0, L"STATIC", NULL,
+        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
+    g_hPages[1] = CreateWindowExW(0, L"STATIC", NULL, 
+        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
+    g_hPages[2] = CreateWindowExW(0, L"STATIC", NULL, 
+        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
+    g_hPages[3] = CreateWindowExW(0, L"STATIC", NULL, 
+        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
+    g_hPages[4] = CreateWindowExW(0, L"STATIC", NULL,
+        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
+
+    // Create the content (the 2x2 grid) for the first page.
+    Monitoring::CreateControlTab(g_hPages[0], ghInst);
+}
+
+void OnSize(HWND hwnd, UINT state, int cx, int cy)
+{
+    if (g_hTab)
+    {
+        /************ Resize Main Window Area *******/
+        MoveWindow(g_hTab, 0, 0, cx, cy, TRUE);
+
+        RECT rcTab;
+        GetClientRect(g_hTab, &rcTab);
+        SendMessage(g_hTab, TCM_ADJUSTRECT, FALSE, (LPARAM)&rcTab);
+
+        if (g_hCurrentPage) {
+            MoveWindow(g_hCurrentPage, rcTab.left, rcTab.top,
+                       rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
+        }
+
+        /************ Resize Current Monitoring Area *******/
+        RECT rcPage;
+        GetClientRect(g_hCurrentPage, &rcPage);
+        int page_w = rcPage.right - rcPage.left;
+        int page_h = rcPage.bottom - rcPage.top;
+
+        if (g_hCurrentPage == g_hPages[0])
+        {
+            Monitoring::ReSizeWindow(page_w, page_h*0.8);
+        }
+
+        /************ Resize Console Area *******/
+        int inputHeight = 30;
+        int padding = 5;
+        // Resize output window
+        MoveWindow(uhConsole::hConsoleOutput, 0, page_h*0.8 + padding,
+                   rcTab.right - rcTab.left, page_h*0.2 - padding, TRUE);
+        // Resize input window
+        MoveWindow(uhConsole::hConsoleInput, padding, page_h - inputHeight - padding,
+                   page_w - 2 * padding, inputHeight, TRUE);
+    }
+}
+
+void OnNotify(HWND hwnd, LPARAM lParam)
+{
+    LPNMHDR pnm = (LPNMHDR)lParam;
+    if (pnm->hwndFrom == g_hTab && pnm->code == TCN_SELCHANGE)
+    {
+        int iSel = TabCtrl_GetCurSel(g_hTab);
+
+        // --- REFACTORED: Show/Hide logic for tab pages ---
+        // Hide the previously visible page
+        if (g_hCurrentPage) {
+            ShowWindow(g_hCurrentPage, SW_HIDE);
+        }
+
+        // Determine which page to show
+        if (iSel >= 0 && iSel < NUM_TABS) {
+            g_hCurrentPage = g_hPages[iSel];
+        }
+        else {
+            g_hCurrentPage = NULL;
+        }
+
+        // Show the new page and force a resize to position it correctly.
+        if (g_hCurrentPage) {
+            ShowWindow(g_hCurrentPage, SW_SHOW);
+            // Force a resize of the main window's client area to correctly position the new page
+            RECT rcClient;
+            GetClientRect(hwnd, &rcClient);
+            OnSize(hwnd, 0, rcClient.right, rcClient.bottom);
+        }
+    }
 }
