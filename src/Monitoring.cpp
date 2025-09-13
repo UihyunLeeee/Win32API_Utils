@@ -12,6 +12,7 @@ namespace Monitoring
 
      // Font for the groupbox titles
     HFONT g_hGroupBoxFont = NULL;
+    HFONT g_hValueFont = NULL;
 
     void CreateSecondArea(HWND hParent, HINSTANCE ghInst)
     {
@@ -34,9 +35,28 @@ namespace Monitoring
             }
 
             // Make the font larger and bold. lf.lfHeight is typically a negative number.
-            lf.lfHeight = -20; // Tweak this value for desired size
+            lf.lfHeight = -40; // Tweak this value for desired size
             lf.lfWeight = FW_BOLD;
             g_hGroupBoxFont = CreateFontIndirectW(&lf);
+        }
+        // Create a font for the value displays.
+        if (!g_hValueFont)
+        {
+            LOGFONTW lf = { 0 };
+            HFONT hDefaultFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            if (hDefaultFont)
+            {
+                GetObjectW(hDefaultFont, sizeof(LOGFONTW), &lf);
+            }
+            else
+            {
+                wcscpy_s(lf.lfFaceName, L"Segoe UI");
+            }
+
+            // Make the font bold and a good size for reading values.
+            lf.lfHeight = -40; // Tweak this value for desired size
+            lf.lfWeight = FW_BOLD;
+            g_hValueFont = CreateFontIndirectW(&lf);
         }
         // Create static labels and value displays inside the top-right quadrant (g_hQuadrantTR)
         hCurrent_FL = CreateWindowExW(0, L"BUTTON", L"FL (A)",
@@ -65,6 +85,12 @@ namespace Monitoring
         hValueDisplay_FL = CreateWindowExW(0, L"STATIC", L"0.30 A",
             WS_CHILD | WS_VISIBLE | SS_CENTER,
             0, 0, 0, 0, hCurrent_FL, NULL, ghInst, NULL);
+
+        // Set the custom font for the value display.
+        if (g_hValueFont)
+        {
+            SendMessage(hValueDisplay_FL, WM_SETFONT, (WPARAM)g_hValueFont, TRUE);
+        }
 
         hProgressBar_FL = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
             WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
@@ -136,9 +162,9 @@ namespace Monitoring
         int group_h = rcGroupFL.bottom;
 
         const int inner_margin = 10;
-        const int label_h = 20;
+        const int label_h = 50;
         const int spacing = 5;
-        const int top_offset = 20; // To clear the groupbox title text
+        const int top_offset = 50; // To clear the groupbox title text
 
         // Position the value display static text
         MoveWindow(hValueDisplay_FL,

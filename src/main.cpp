@@ -95,15 +95,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             CreateTabPages(hWnd);
 
-            //Create the console window
-            //uhConsole::CreateConsoleTab(hWnd, ghInst);
-            //if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput ) 
-            //{
-            //    MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
-            //        MB_ICONERROR | MB_OK);
-            //    return -1;
-            //}
-            //uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
+            // Create the console window on the first tab page
+            uhConsole::CreateConsoleTab(g_hPages[0], ghInst);
+            if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput )
+            {
+                MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
+                    MB_ICONERROR | MB_OK);
+                return -1;
+            }
+            g_hCurrentPage = g_hPages[0];
+            ShowWindow(g_hCurrentPage, SW_SHOW);
+            uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
         }
         return 0;
 
@@ -186,26 +188,30 @@ void OnSize(HWND hwnd, UINT state, int cx, int cy)
                        rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
         }
 
-        /************ Resize Current Monitoring Area *******/
         RECT rcPage;
         GetClientRect(g_hCurrentPage, &rcPage);
         int page_w = rcPage.right - rcPage.left;
         int page_h = rcPage.bottom - rcPage.top;
 
+        // Resize content based on which tab is selected
+        int monitoring_h = (int)(page_h * 0.8);
+        /************ Resize Monitoring Area (Top 80%) ************/
         if (g_hCurrentPage == g_hPages[0])
         {
-            Monitoring::ReSizeWindow(page_w, page_h*0.8);
+            Monitoring::ReSizeWindow(page_w, monitoring_h);
         }
-
-        /************ Resize Console Area *******/
+        /************ Resize Console Area (Bottom 20%) ************/
         int inputHeight = 30;
         int padding = 5;
-        // Resize output window
-        //MoveWindow(uhConsole::hConsoleOutput, 0, page_h*0.8 + padding,
-        //           rcTab.right - rcTab.left, page_h*0.2 - padding, TRUE);
-        //// Resize input window
-        //MoveWindow(uhConsole::hConsoleInput, padding, page_h - inputHeight - padding,
-        //           page_w - 2 * padding, inputHeight, TRUE);
+        int console_top_y = monitoring_h;
+        int console_h = page_h - console_top_y;
+        int output_h = console_h - inputHeight - padding;
+        if (output_h < 0)
+            output_h = 0;
+
+        MoveWindow(uhConsole::hConsoleOutput, 0, console_top_y, page_w, output_h, TRUE);
+        MoveWindow(uhConsole::hConsoleInput, padding, console_top_y + output_h + padding,
+                   page_w - (2 * padding), inputHeight, TRUE);
     }
 }
 
