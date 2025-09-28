@@ -24,6 +24,8 @@ HWND hPageMontoring, hPageSpeedOffset, hPageAntiRoll;
 HWND hPageAntiDive, hPageAntiSquat; 
 HWND g_hCurrentPage; 
 
+Monitoring monitoring; 
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
 {
@@ -90,7 +92,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
 
             // Create page containers (simple STATIC windows)
-            hPageMontoring = Monitoring::CreateControlTab(hPageMontoring, ghInst);
+            monitoring.CreateControlTab(hWnd, ghInst);
+
             hPageSpeedOffset = CreateWindowExW(0, L"STATIC", 
                 NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
             hPageAntiRoll   = CreateWindowExW(0, L"STATIC", 
@@ -100,10 +103,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             hPageAntiSquat  = CreateWindowExW(0, L"STATIC", 
                 NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
 
-            // Create the content for the pages.
-            SpeedOffset::CreateControlTab(hPageSpeedOffset, ghInst);
-
-            g_hCurrentPage = hPageMontoring; 
+            g_hCurrentPage = monitoring.hPage; // Start with Monitoring tab
             ShowWindow(g_hCurrentPage, SW_SHOW);
 
             // Create the console window, parented to the main window.
@@ -202,9 +202,9 @@ void OnSize(HWND hwnd, UINT state, int cx, int cy)
         int page_h = rcPage.bottom - rcPage.top;
 
         // Resize the content within the current tab page.
-        if (g_hCurrentPage == hPageMontoring) 
+        if (g_hCurrentPage == monitoring.hPage) 
         {
-            Monitoring::ReSizeWindow(page_w, page_h);
+            monitoring.ReSizeWindow(page_w, page_h);
         }
         else if (g_hCurrentPage == hPageSpeedOffset) 
         {
@@ -254,7 +254,7 @@ void OnNotify(HWND hwnd, LPARAM lParam)
             switch(iSel)
             {
             case 0:
-                g_hCurrentPage = hPageMontoring;
+                g_hCurrentPage = monitoring.hPage;
                 break;
             case 1:
                 g_hCurrentPage = hPageSpeedOffset;
