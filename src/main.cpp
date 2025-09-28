@@ -20,8 +20,6 @@ HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst);
 HWND g_hTab; // Handle to the tab control
 
 const int NUM_TABS = 5;
-HWND hPageMontoring, hPageSpeedOffset, hPageAntiRoll;
-HWND hPageAntiDive, hPageAntiSquat; 
 HWND g_hCurrentPage; 
 
 Monitoring monitoring; 
@@ -94,15 +92,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // Create page containers (simple STATIC windows)
             monitoring.CreateControlTab(hWnd, ghInst);
 
-            hPageSpeedOffset = CreateWindowExW(0, L"STATIC", 
-                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
-            hPageAntiRoll   = CreateWindowExW(0, L"STATIC", 
-                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
-            hPageAntiDive   = CreateWindowExW(0, L"STATIC", 
-                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
-            hPageAntiSquat  = CreateWindowExW(0, L"STATIC", 
-                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
-
             g_hCurrentPage = monitoring.hPage; // Start with Monitoring tab
             ShowWindow(g_hCurrentPage, SW_SHOW);
 
@@ -166,73 +155,47 @@ HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst)
 
 void OnSize(HWND hwnd, UINT state, int cx, int cy)
 {
-    if (g_hTab)
+    // Define the layout split: 80% for tabs, 20% for console.
+    const int console_area_h = (int)(cy * 0.20);
+    const int tab_area_h = cy - console_area_h;
+
+    /************ 1. Resize Tab Area and its Contents ***********/
+    // Resize the tab control itself to occupy the top part of the window.
+    MoveWindow(g_hTab, 0, 0, cx, tab_area_h, TRUE);
+
+    // Calculate the display area for the tab pages, inside the tab control.
+    RECT rcTab;
+    GetClientRect(g_hTab, &rcTab);
+    SendMessage(g_hTab, TCM_ADJUSTRECT, FALSE, (LPARAM)&rcTab);
+
+    // Resize the content within the current tab page.
+    if (g_hCurrentPage == monitoring.hPage)
     {
-        // Define the layout split: 80% for tabs, 20% for console.
-        const int console_area_h = (int)(cy * 0.20);
-        const int tab_area_h = cy - console_area_h;
-
-        /************ 1. Resize Tab Area and its Contents ***********/
-        // Resize the tab control itself to occupy the top part of the window.
-        MoveWindow(g_hTab, 0, 0, cx, tab_area_h, TRUE);
-
-        // Calculate the display area for the tab pages, inside the tab control.
-        RECT rcTab;
-        GetClientRect(g_hTab, &rcTab);
-        SendMessage(g_hTab, TCM_ADJUSTRECT, FALSE, (LPARAM)&rcTab);
-
-        // Resize the current page container to fit the tab display area.
-        if (g_hCurrentPage) 
-        {
-            MoveWindow(g_hCurrentPage, rcTab.left, rcTab.top,
-                       rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
-        }
-
-        // Get the dimensions of the page content area to pass to the page-specific resize function.
-        RECT rcPage;
-        if (g_hCurrentPage) 
-        {
-            GetClientRect(g_hCurrentPage, &rcPage);
-        } 
-        else 
-        {
-            SetRectEmpty(&rcPage);
-        }
-        int page_w = rcPage.right - rcPage.left;
-        int page_h = rcPage.bottom - rcPage.top;
-
-        // Resize the content within the current tab page.
-        if (g_hCurrentPage == monitoring.hPage) 
-        {
-            monitoring.ReSizeWindow(page_w, page_h);
-        }
-        else if (g_hCurrentPage == hPageSpeedOffset) 
-        {
-            SpeedOffset::ReSizeWindow(page_w, page_h);
-        }
-
-        /************ 2. Resize Console Area ************/
-        const int inputHeight = 30;
-        const int padding = 5;
-        int console_top_y = tab_area_h;
-        
-        int output_h = console_area_h - inputHeight - padding;
-        if (output_h < 0) output_h = 0;
-
-        // Use rcTab (calculated for the tab control's display area)
-        // to align the console with the tab page content area.
-        const int console_x = rcTab.left;
-        const int console_w = rcTab.right - rcTab.left;
-
-        // The console controls are children of the main window (hwnd), 
-        // so coordinates are relative to it.
-        MoveWindow(uhConsole::hConsoleOutput, 
-            console_x, console_top_y, 
-            console_w, output_h, TRUE);
-        MoveWindow(uhConsole::hConsoleInput, 
-            console_x + padding, console_top_y + output_h + padding, 
-            console_w - (2 * padding), inputHeight, TRUE);
+        monitoring.ReSizeWindow(rcTab);
     }
+
+    /************ 2. Resize Console Area ************/
+    const int inputHeight = 30;
+    const int padding = 5;
+    int console_top_y = tab_area_h;
+
+    int output_h = console_area_h - inputHeight - padding;
+    if (output_h < 0)
+        output_h = 0;
+
+    // Use rcTab (calculated for the tab control's display area)
+    // to align the console with the tab page content area.
+    const int console_x = rcTab.left;
+    const int console_w = rcTab.right - rcTab.left;
+
+    // The console controls are children of the main window (hwnd),
+    // so coordinates are relative to it.
+    MoveWindow(uhConsole::hConsoleOutput,
+               console_x, console_top_y,
+               console_w, output_h, TRUE);
+    MoveWindow(uhConsole::hConsoleInput,
+               console_x + padding, console_top_y + output_h + padding,
+               console_w - (2 * padding), inputHeight, TRUE);
 }
 
 void OnNotify(HWND hwnd, LPARAM lParam)
@@ -256,18 +219,18 @@ void OnNotify(HWND hwnd, LPARAM lParam)
             case 0:
                 g_hCurrentPage = monitoring.hPage;
                 break;
-            case 1:
-                g_hCurrentPage = hPageSpeedOffset;
-                break;
-            case 2:
-                g_hCurrentPage = hPageAntiRoll;
-                break;
-            case 3:
-                g_hCurrentPage = hPageAntiDive;
-                break;
-            case 4:
-                g_hCurrentPage = hPageAntiSquat;
-                break;
+            //case 1:
+            //    g_hCurrentPage = hPageSpeedOffset;
+            //    break;
+            //case 2:
+            //    g_hCurrentPage = hPageAntiRoll;
+            //    break;
+            //case 3:
+            //    g_hCurrentPage = hPageAntiDive;
+            //    break;
+            //case 4:
+            //    g_hCurrentPage = hPageAntiSquat;
+            //    break;
             default:
                 g_hCurrentPage = NULL;
                 break;

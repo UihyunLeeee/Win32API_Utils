@@ -18,5 +18,6 @@ public:
 
     void CreateSecondArea(HWND hParent, HINSTANCE ghInst);
     bool CreateControlTab(HWND hParent, HINSTANCE ghInst);
-    void ReSizeWindow(int page_w, int page_h);
+    //void ReSizeWindow(int page_w, int page_h);
+    void ReSizeWindow(const RECT rcPage);
 };

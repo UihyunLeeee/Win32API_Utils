@@ -175,8 +175,20 @@ bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
     return true;
 }
 
-void Monitoring::ReSizeWindow(int page_w, int page_h)
+//void Monitoring::ReSizeWindow(int page_w, int page_h)
+void Monitoring::ReSizeWindow(const RECT rcTab)
 {
+    // Resize the current page container to fit the tab display area.
+    MoveWindow(hPage, rcTab.left, rcTab.top,
+               rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
+
+    // Get the dimensions of the page content area to pass to the page-specific resize function.
+    RECT rcPage;
+    GetClientRect(hPage, &rcPage);
+
+    int page_w = rcPage.right - rcPage.left;
+    int page_h = rcPage.bottom - rcPage.top;
+    
     // Resize the four main quadrant windows
     MoveWindow(g_hQuadrantTL,
                0, 0, page_w / 2, page_h / 2, TRUE);
