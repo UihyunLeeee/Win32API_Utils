@@ -1,37 +1,32 @@
 #include "config.h"
-#include "Util.h"
 #include <commctrl.h> // For Tab Controls
 
 #include <string> // For std::wstring
 
+#include "SpeedOffset.h"
 #include "Monitoring.h"
 #include "uhConsole.h"
 
-// Function Prototypes
+// Main Winddow Function Declarations 
 HINSTANCE ghInst;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst);
-void CreateTabPages(HWND hWndParent);
 void OnSize(HWND hwnd, UINT state, int cx, int cy);
 void OnNotify(HWND hwnd, LPARAM lParam);
+
+// Function to create the tab control and its pages
+HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst);
 
 // Global Variables
 HWND g_hTab; // Handle to the tab control
 
-// --- REFACTORED: Use an array for tab pages for better scalability ---
 const int NUM_TABS = 5;
-HWND g_hPages[NUM_TABS];
+HWND hPageMontoring, hPageSpeedOffset, hPageAntiRoll;
+HWND hPageAntiDive, hPageAntiSquat; 
 HWND g_hCurrentPage; 
-HWND g_hConsol; 
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
 {
-    if (debugger.IsValid())
-    {
-        // The new GUI console will be used for output.
-    }
-
     ghInst = hInstance;
 
     INITCOMMONCONTROLSEX icex;
@@ -57,7 +52,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     HWND hWnd = CreateWindowExW(
         0, CLASS_NAME, L"Tab Window Application", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, // Start with a default size
+        CW_USEDEFAULT, CW_USEDEFAULT, 1920, 1080, // Start with FHD size
         NULL, NULL, hInstance, NULL);
 
     if (hWnd == NULL)
@@ -67,7 +62,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 0;
     }
 
-    ShowWindow(hWnd, SW_SHOWMAXIMIZED);
+    ShowWindow(hWnd, nShowCmd);
     UpdateWindow(hWnd);
 
     MSG msg = {};
@@ -93,18 +88,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     MB_ICONERROR | MB_OK);
                 return -1;
             }
-            CreateTabPages(hWnd);
 
-            // Create the console window on the first tab page
-            uhConsole::CreateConsoleTab(g_hPages[0], ghInst);
+            // Create page containers (simple STATIC windows)
+            hPageMontoring = Monitoring::CreateControlTab(hPageMontoring, ghInst);
+            hPageSpeedOffset = CreateWindowExW(0, L"STATIC", 
+                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
+            hPageAntiRoll   = CreateWindowExW(0, L"STATIC", 
+                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
+            hPageAntiDive   = CreateWindowExW(0, L"STATIC", 
+                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
+            hPageAntiSquat  = CreateWindowExW(0, L"STATIC", 
+                NULL, WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWnd, NULL, ghInst, NULL);
+
+            // Create the content for the pages.
+            SpeedOffset::CreateControlTab(hPageSpeedOffset, ghInst);
+
+            g_hCurrentPage = hPageMontoring; 
+            ShowWindow(g_hCurrentPage, SW_SHOW);
+
+            // Create the console window, parented to the main window.
+            // It will be positioned in OnSize.
+            uhConsole::CreateConsoleTab(hWnd, ghInst);
             if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput )
             {
                 MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
                     MB_ICONERROR | MB_OK);
                 return -1;
             }
-            g_hCurrentPage = g_hPages[0];
-            ShowWindow(g_hCurrentPage, SW_SHOW);
             uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
         }
         return 0;
@@ -154,64 +164,74 @@ HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst)
     return hWndTab;
 }
 
-void CreateTabPages(HWND hWndParent)
-{
-    // Create page containers (simple STATIC windows)
-    g_hPages[0] = CreateWindowExW(0, L"STATIC", NULL,
-        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
-    g_hPages[1] = CreateWindowExW(0, L"STATIC", NULL, 
-        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
-    g_hPages[2] = CreateWindowExW(0, L"STATIC", NULL, 
-        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
-    g_hPages[3] = CreateWindowExW(0, L"STATIC", NULL, 
-        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
-    g_hPages[4] = CreateWindowExW(0, L"STATIC", NULL,
-        WS_CHILD | WS_BORDER, 0, 0, 0, 0, hWndParent, NULL, ghInst, NULL);
-
-    // Create the content (the 2x2 grid) for the first page.
-    Monitoring::CreateControlTab(g_hPages[0], ghInst);
-}
-
 void OnSize(HWND hwnd, UINT state, int cx, int cy)
 {
     if (g_hTab)
     {
-        /************ Resize Main Window Area *******/
-        MoveWindow(g_hTab, 0, 0, cx, cy, TRUE);
+        // Define the layout split: 80% for tabs, 20% for console.
+        const int console_area_h = (int)(cy * 0.20);
+        const int tab_area_h = cy - console_area_h;
 
+        /************ 1. Resize Tab Area and its Contents ***********/
+        // Resize the tab control itself to occupy the top part of the window.
+        MoveWindow(g_hTab, 0, 0, cx, tab_area_h, TRUE);
+
+        // Calculate the display area for the tab pages, inside the tab control.
         RECT rcTab;
         GetClientRect(g_hTab, &rcTab);
         SendMessage(g_hTab, TCM_ADJUSTRECT, FALSE, (LPARAM)&rcTab);
 
-        if (g_hCurrentPage) {
+        // Resize the current page container to fit the tab display area.
+        if (g_hCurrentPage) 
+        {
             MoveWindow(g_hCurrentPage, rcTab.left, rcTab.top,
                        rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
         }
 
+        // Get the dimensions of the page content area to pass to the page-specific resize function.
         RECT rcPage;
-        GetClientRect(g_hCurrentPage, &rcPage);
+        if (g_hCurrentPage) 
+        {
+            GetClientRect(g_hCurrentPage, &rcPage);
+        } 
+        else 
+        {
+            SetRectEmpty(&rcPage);
+        }
         int page_w = rcPage.right - rcPage.left;
         int page_h = rcPage.bottom - rcPage.top;
 
-        // Resize content based on which tab is selected
-        int monitoring_h = (int)(page_h * 0.8);
-        /************ Resize Monitoring Area (Top 80%) ************/
-        if (g_hCurrentPage == g_hPages[0])
+        // Resize the content within the current tab page.
+        if (g_hCurrentPage == hPageMontoring) 
         {
-            Monitoring::ReSizeWindow(page_w, monitoring_h);
+            Monitoring::ReSizeWindow(page_w, page_h);
         }
-        /************ Resize Console Area (Bottom 20%) ************/
-        int inputHeight = 30;
-        int padding = 5;
-        int console_top_y = monitoring_h;
-        int console_h = page_h - console_top_y;
-        int output_h = console_h - inputHeight - padding;
-        if (output_h < 0)
-            output_h = 0;
+        else if (g_hCurrentPage == hPageSpeedOffset) 
+        {
+            SpeedOffset::ReSizeWindow(page_w, page_h);
+        }
 
-        MoveWindow(uhConsole::hConsoleOutput, 0, console_top_y, page_w, output_h, TRUE);
-        MoveWindow(uhConsole::hConsoleInput, padding, console_top_y + output_h + padding,
-                   page_w - (2 * padding), inputHeight, TRUE);
+        /************ 2. Resize Console Area ************/
+        const int inputHeight = 30;
+        const int padding = 5;
+        int console_top_y = tab_area_h;
+        
+        int output_h = console_area_h - inputHeight - padding;
+        if (output_h < 0) output_h = 0;
+
+        // Use rcTab (calculated for the tab control's display area)
+        // to align the console with the tab page content area.
+        const int console_x = rcTab.left;
+        const int console_w = rcTab.right - rcTab.left;
+
+        // The console controls are children of the main window (hwnd), 
+        // so coordinates are relative to it.
+        MoveWindow(uhConsole::hConsoleOutput, 
+            console_x, console_top_y, 
+            console_w, output_h, TRUE);
+        MoveWindow(uhConsole::hConsoleInput, 
+            console_x + padding, console_top_y + output_h + padding, 
+            console_w - (2 * padding), inputHeight, TRUE);
     }
 }
 
@@ -229,17 +249,39 @@ void OnNotify(HWND hwnd, LPARAM lParam)
         }
 
         // Determine which page to show
-        if (iSel >= 0 && iSel < NUM_TABS) {
-            g_hCurrentPage = g_hPages[iSel];
+        if (iSel >= 0 && iSel < NUM_TABS) 
+        {
+            switch(iSel)
+            {
+            case 0:
+                g_hCurrentPage = hPageMontoring;
+                break;
+            case 1:
+                g_hCurrentPage = hPageSpeedOffset;
+                break;
+            case 2:
+                g_hCurrentPage = hPageAntiRoll;
+                break;
+            case 3:
+                g_hCurrentPage = hPageAntiDive;
+                break;
+            case 4:
+                g_hCurrentPage = hPageAntiSquat;
+                break;
+            default:
+                g_hCurrentPage = NULL;
+                break;
+            }
         }
-        else {
+        else
+        {
             g_hCurrentPage = NULL;
         }
 
-        // Show the new page and force a resize to position it correctly.
-        if (g_hCurrentPage) {
+        if (g_hCurrentPage) 
+        {
             ShowWindow(g_hCurrentPage, SW_SHOW);
-            // Force a resize of the main window's client area to correctly position the new page
+
             RECT rcClient;
             GetClientRect(hwnd, &rcClient);
             OnSize(hwnd, 0, rcClient.right, rcClient.bottom);

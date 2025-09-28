@@ -1,8 +1,66 @@
 #include "Monitoring.h"
 #include <CommCtrl.h>
 
+class CurrentDisplay 
+{
+public:
+    HWND hGroupBox;
+    HWND hValueDisplay;
+    HWND hProgressBar;
+
+    void Create(HWND hParent, HINSTANCE hInst, const wchar_t *title, 
+        int progressMin, int progressMax, HFONT hGroupFont, HFONT hValueFont)
+    {
+        hGroupBox = CreateWindowExW(0, L"BUTTON", title,
+             WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+             0, 0, 0, 0, hParent, NULL, hInst, NULL);
+
+        if (hGroupFont)
+            SendMessage(hGroupBox, WM_SETFONT, (WPARAM)hGroupFont, TRUE);
+
+        hValueDisplay = CreateWindowExW(0, L"STATIC", L"0.30 A", 
+            WS_CHILD | WS_VISIBLE | SS_CENTER, 
+            0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
+
+        if (hValueFont)
+            SendMessage(hValueDisplay, WM_SETFONT, (WPARAM)hValueFont, TRUE);
+
+        hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, NULL, 
+            WS_CHILD | WS_VISIBLE | PBS_SMOOTH, 
+            0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
+
+        SendMessage(hProgressBar, PBM_SETRANGE32, progressMin, progressMax);
+        SendMessage(hProgressBar, PBM_SETPOS, progressMin, 0);
+    }
+
+    void Resize(int x, int y, int w, int h)
+    {
+        MoveWindow(hGroupBox, x, y, w, h, TRUE);
+
+        RECT rcGroup;
+        GetClientRect(hGroupBox, &rcGroup);
+        int group_w = rcGroup.right;
+        int group_h = rcGroup.bottom;
+
+        const int inner_margin = 10;
+        const int label_h = 50;
+        const int spacing = 5;
+        const int top_offset = 50;
+
+        MoveWindow(hValueDisplay, inner_margin, top_offset, 
+            group_w - (2 * inner_margin), label_h, TRUE);
+
+        int progress_y = top_offset + label_h + spacing;
+        MoveWindow(hProgressBar, inner_margin, progress_y, 
+            group_w - (2 * inner_margin), 
+            group_h - progress_y - inner_margin, TRUE);
+    }
+};
+
 namespace Monitoring
 {
+    HWND hPage = NULL;
+
     // Main Quad windows handles
     HWND g_hQuadrantTL, g_hQuadrantTR, g_hQuadrantBL, g_hQuadrantBR;
 
@@ -101,8 +159,12 @@ namespace Monitoring
         SendMessage(hProgressBar_FL, PBM_SETPOS, 30, 0); // Initial value 0.3
     }
 
-    void CreateControlTab(HWND hPage, HINSTANCE ghInst)
+    HWND CreateControlTab(HWND hParent, HINSTANCE ghInst)
     {
+        hPage = CreateWindowExW(0, L"STATIC", NULL, 
+            WS_CHILD | WS_BORDER, 0, 0, 0, 0, hParent, 
+            NULL, ghInst, NULL);
+
         // Create four static controls to act as the quadrants.
         g_hQuadrantTL = CreateWindowExW(0, L"STATIC", L"Motion Display Window",
             WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
@@ -122,7 +184,6 @@ namespace Monitoring
 
         CreateSecondArea(g_hQuadrantTR, ghInst);
     }
-
 
     void ReSizeWindow(int page_w, int page_h)
     {
