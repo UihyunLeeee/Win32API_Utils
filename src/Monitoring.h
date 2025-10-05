@@ -1,6 +1,25 @@
 #include <windows.h>
 #include <commctrl.h>
 
+class CurrentDisplay 
+{
+public:
+    HWND hGroupBox;
+    HWND hValueDisplay;
+    HWND hProgressBar;
+
+    // Static members for shared resources like fonts
+    static HFONT s_hGroupBoxFont;
+    static HFONT s_hValueFont;
+
+    // Static methods to initialize and clean up shared resources
+    static void Init();
+    static void Cleanup();
+    void Create(HWND hParent, HINSTANCE hInst,
+                const wchar_t *title, int progressMin, int progressMax);
+    void Resize(int x, int y, int w, int h);
+};
+
 class Monitoring
 {
 public:
@@ -8,16 +27,10 @@ public:
     // Main Quad windows handles
     HWND g_hQuadrantTL, g_hQuadrantTR, g_hQuadrantBL, g_hQuadrantBR;
 
-    // Sub windows
-    HWND hCurrent_FL, hCurrent_FR, hCurrent_RL, hCurrent_RR;
-    HWND hProgressBar_FL, hValueDisplay_FL;
+    CurrentDisplay m_displayFL, m_displayFR, m_displayRL, m_displayRR;
 
-     // Font for the groupbox titles
-    HFONT g_hGroupBoxFont = NULL;
-    HFONT g_hValueFont = NULL;
-
-    void CreateSecondArea(HWND hParent, HINSTANCE ghInst);
     bool CreateControlTab(HWND hParent, HINSTANCE ghInst);
+    void CreateSecondArea(HWND hParent, HINSTANCE ghInst);
     //void ReSizeWindow(int page_w, int page_h);
     void ReSizeWindow(const RECT rcPage);
 };

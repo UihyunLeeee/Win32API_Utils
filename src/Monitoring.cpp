@@ -1,74 +1,16 @@
 #include "Monitoring.h"
 #include <CommCtrl.h>
 
-class CurrentDisplay 
-{
-public:
-    HWND hGroupBox;
-    HWND hValueDisplay;
-    HWND hProgressBar;
+// Define the static members of CurrentDisplay
+HFONT CurrentDisplay::s_hGroupBoxFont = NULL;
+HFONT CurrentDisplay::s_hValueFont = NULL;
 
-    void Create(HWND hParent, HINSTANCE hInst, const wchar_t *title, 
-        int progressMin, int progressMax, HFONT hGroupFont, HFONT hValueFont)
-    {
-        hGroupBox = CreateWindowExW(0, L"BUTTON", title,
-             WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-             0, 0, 0, 0, hParent, NULL, hInst, NULL);
-
-        if (hGroupFont)
-            SendMessage(hGroupBox, WM_SETFONT, (WPARAM)hGroupFont, TRUE);
-
-        hValueDisplay = CreateWindowExW(0, L"STATIC", L"0.30 A", 
-            WS_CHILD | WS_VISIBLE | SS_CENTER, 
-            0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
-
-        if (hValueFont)
-            SendMessage(hValueDisplay, WM_SETFONT, (WPARAM)hValueFont, TRUE);
-
-        hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, NULL, 
-            WS_CHILD | WS_VISIBLE | PBS_SMOOTH, 
-            0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
-
-        SendMessage(hProgressBar, PBM_SETRANGE32, progressMin, progressMax);
-        SendMessage(hProgressBar, PBM_SETPOS, progressMin, 0);
-    }
-
-    void Resize(int x, int y, int w, int h)
-    {
-        MoveWindow(hGroupBox, x, y, w, h, TRUE);
-
-        RECT rcGroup;
-        GetClientRect(hGroupBox, &rcGroup);
-        int group_w = rcGroup.right;
-        int group_h = rcGroup.bottom;
-
-        const int inner_margin = 10;
-        const int label_h = 50;
-        const int spacing = 5;
-        const int top_offset = 50;
-
-        MoveWindow(hValueDisplay, inner_margin, top_offset, 
-            group_w - (2 * inner_margin), label_h, TRUE);
-
-        int progress_y = top_offset + label_h + spacing;
-        MoveWindow(hProgressBar, inner_margin, progress_y, 
-            group_w - (2 * inner_margin), 
-            group_h - progress_y - inner_margin, TRUE);
-    }
-};
-
-
-/********************************************************************/
-
-void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
+void CurrentDisplay::Init()
 {
     // Create a larger font for the group boxes.
-    // This font handle should be destroyed (DeleteObject) when the application closes,
-    // but for simplicity in this example, we'll let the OS clean it up.
-    if (!g_hGroupBoxFont)
+    if (!s_hGroupBoxFont)
     {
         LOGFONTW lf = {0};
-        // Start with the default GUI font for consistency with the system theme.
         HFONT hDefaultFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         if (hDefaultFont)
         {
@@ -76,17 +18,14 @@ void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
         }
         else
         {
-            // Fallback if we can't get the default font
             wcscpy_s(lf.lfFaceName, L"Segoe UI");
         }
-
-        // Make the font larger and bold. lf.lfHeight is typically a negative number.
         lf.lfHeight = -40; // Tweak this value for desired size
         lf.lfWeight = FW_BOLD;
-        g_hGroupBoxFont = CreateFontIndirectW(&lf);
+        s_hGroupBoxFont = CreateFontIndirectW(&lf);
     }
     // Create a font for the value displays.
-    if (!g_hValueFont)
+    if (!s_hValueFont)
     {
         LOGFONTW lf = {0};
         HFONT hDefaultFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
@@ -98,54 +37,67 @@ void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
         {
             wcscpy_s(lf.lfFaceName, L"Segoe UI");
         }
-
-        // Make the font bold and a good size for reading values.
         lf.lfHeight = -40; // Tweak this value for desired size
         lf.lfWeight = FW_BOLD;
-        g_hValueFont = CreateFontIndirectW(&lf);
+        s_hValueFont = CreateFontIndirectW(&lf);
     }
-    // Create static labels and value displays inside the top-right quadrant (g_hQuadrantTR)
-    hCurrent_FL = CreateWindowExW(0, L"BUTTON", L"FL (A)",
-                                  WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                  0, 0, 0, 0, g_hQuadrantTR, NULL, ghInst, NULL);
-    hCurrent_FR = CreateWindowExW(0, L"BUTTON", L"FR (A)",
-                                  WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                  0, 0, 0, 0, g_hQuadrantTR, NULL, ghInst, NULL);
-    hCurrent_RL = CreateWindowExW(0, L"BUTTON", L"RL (A)",
-                                  WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                  0, 0, 0, 0, g_hQuadrantTR, NULL, ghInst, NULL);
-    hCurrent_RR = CreateWindowExW(0, L"BUTTON", L"RR (A)",
-                                  WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                  0, 0, 0, 0, g_hQuadrantTR, NULL, ghInst, NULL);
-
-    // Set the custom font for the newly created controls.
-    if (g_hGroupBoxFont)
-    {
-        SendMessage(hCurrent_FL, WM_SETFONT, (WPARAM)g_hGroupBoxFont, TRUE);
-        SendMessage(hCurrent_FR, WM_SETFONT, (WPARAM)g_hGroupBoxFont, TRUE);
-        SendMessage(hCurrent_RL, WM_SETFONT, (WPARAM)g_hGroupBoxFont, TRUE);
-        SendMessage(hCurrent_RR, WM_SETFONT, (WPARAM)g_hGroupBoxFont, TRUE);
-    }
-
-    // Create child controls for the FL group box
-    hValueDisplay_FL = CreateWindowExW(0, L"STATIC", L"0.30 A",
-                                       WS_CHILD | WS_VISIBLE | SS_CENTER,
-                                       0, 0, 0, 0, hCurrent_FL, NULL, ghInst, NULL);
-
-    // Set the custom font for the value display.
-    if (g_hValueFont)
-    {
-        SendMessage(hValueDisplay_FL, WM_SETFONT, (WPARAM)g_hValueFont, TRUE);
-    }
-
-    hProgressBar_FL = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
-                                      WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
-                                      0, 0, 0, 0, hCurrent_FL, NULL, ghInst, NULL);
-
-    // Set progress bar range from 0.3 to 1.6 (as 30 to 160)
-    SendMessage(hProgressBar_FL, PBM_SETRANGE32, 30, 160);
-    SendMessage(hProgressBar_FL, PBM_SETPOS, 30, 0); // Initial value 0.3
 }
+
+void CurrentDisplay::Cleanup()
+{
+    if (s_hGroupBoxFont) DeleteObject(s_hGroupBoxFont);
+    if (s_hValueFont) DeleteObject(s_hValueFont);
+}
+
+void CurrentDisplay::Create(HWND hParent, HINSTANCE hInst, 
+    const wchar_t *title, int progressMin, int progressMax)
+{
+    hGroupBox = CreateWindowExW(0, L"BUTTON", title,
+                                WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+                                0, 0, 0, 0, hParent, NULL, hInst, NULL);
+
+    if (s_hGroupBoxFont)
+        SendMessage(hGroupBox, WM_SETFONT, (WPARAM)s_hGroupBoxFont, TRUE);
+
+    hValueDisplay = CreateWindowExW(0, L"STATIC", L"0.30 A",
+                                    WS_CHILD | WS_VISIBLE | SS_CENTER,
+                                    0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
+
+    if (s_hValueFont)
+        SendMessage(hValueDisplay, WM_SETFONT, (WPARAM)s_hValueFont, TRUE);
+
+    hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
+                                   WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+                                   0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
+
+    SendMessage(hProgressBar, PBM_SETRANGE32, progressMin, progressMax);
+    SendMessage(hProgressBar, PBM_SETPOS, progressMin, 0);
+}
+
+void CurrentDisplay::Resize(int x, int y, int w, int h)
+{
+    MoveWindow(hGroupBox, x, y, w, h, TRUE);
+
+    RECT rcGroup;
+    GetClientRect(hGroupBox, &rcGroup);
+    int group_w = rcGroup.right;
+    int group_h = rcGroup.bottom;
+
+    const int inner_margin = 10;
+    const int label_h = 50;
+    const int spacing = 5;
+    const int top_offset = 50;
+
+    MoveWindow(hValueDisplay, inner_margin, top_offset,
+               group_w - (2 * inner_margin), label_h, TRUE);
+
+    int progress_y = top_offset + label_h + spacing;
+    MoveWindow(hProgressBar, inner_margin, progress_y,
+               group_w - (2 * inner_margin),
+               group_h - progress_y - inner_margin, TRUE);
+}
+
+/********************************************************************/
 
 bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
 {
@@ -155,25 +107,38 @@ bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
 
     // Create four static controls to act as the quadrants.
     g_hQuadrantTL = CreateWindowExW(0, L"STATIC", L"Motion Display Window",
-                                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
-                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
+        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantTR = CreateWindowExW(0, L"STATIC", L"",
-                                    WS_CHILD | WS_VISIBLE | WS_BORDER,
-                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantTR = CreateWindowExW(0, L"STATIC", L"", 
+        WS_CHILD | WS_VISIBLE | WS_BORDER, 
+        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantBL = CreateWindowExW(0, L"STATIC", L"Bottom-Left (2,1)",
-                                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
-                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantBL = CreateWindowExW(0, L"STATIC", L"Bottom-Left (2,1)", 
+        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
+        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"Bottom-Right (2,2)",
-                                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
-                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"Bottom-Right (2,2)", 
+        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
+        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    //CreateSecondArea(g_hQuadrantTR, ghInst);
+    CreateSecondArea(g_hQuadrantTR, ghInst);
 
     return true;
 }
+
+void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
+{
+    // Initialize shared resources for the CurrentDisplay class
+    CurrentDisplay::Init();
+    
+    // Create the four current display controls inside the top-right quadrant
+    m_displayFL.Create(g_hQuadrantTR, ghInst, L"FL", 30, 160);
+    m_displayFR.Create(g_hQuadrantTR, ghInst, L"FR", 30, 160);
+    m_displayRL.Create(g_hQuadrantTR, ghInst, L"RL", 30, 160);
+    m_displayRR.Create(g_hQuadrantTR, ghInst, L"RR", 30, 160);
+}
+
 
 //void Monitoring::ReSizeWindow(int page_w, int page_h)
 void Monitoring::ReSizeWindow(const RECT rcTab)
@@ -210,58 +175,23 @@ void Monitoring::ReSizeWindow(const RECT rcTab)
     int x_mid = parent_w / 2;
     int y_mid = parent_h / 2;
 
-    // Top-left
-    MoveWindow(hCurrent_FL,
-               margin,
-               margin,
-               x_mid - margin - half_margin,
-               y_mid - margin - half_margin,
-               TRUE);
+    // Calculate dimensions for the four sub-quadrants
+    int w = x_mid - margin - half_margin;
+    int h = y_mid - margin - half_margin;
 
-    // Resize children of hCurrent_FL
-    RECT rcGroupFL;
-    GetClientRect(hCurrent_FL, &rcGroupFL);
-    int group_w = rcGroupFL.right;
-    int group_h = rcGroupFL.bottom;
+    // Top-left (FL)
+    m_displayFL.Resize(margin, margin, w, h);
 
-    const int inner_margin = 10;
-    const int label_h = 50;
-    const int spacing = 5;
-    const int top_offset = 50; // To clear the groupbox title text
+    // Top-right (FR)
+    int x_tr = x_mid + half_margin;
+    int w_tr = parent_w - x_tr - margin;
+    m_displayFR.Resize(x_tr, margin, w_tr, h);
 
-    // Position the value display static text
-    MoveWindow(hValueDisplay_FL,
-               inner_margin, top_offset, group_w - (2 * inner_margin), label_h, TRUE);
+    // Bottom-left (RL)
+    int y_bl = y_mid + half_margin;
+    int h_bl = parent_h - y_bl - margin;
+    m_displayRL.Resize(margin, y_bl, w, h_bl);
 
-    // Position the progress bar
-    int progress_y = top_offset + label_h + spacing;
-    MoveWindow(hProgressBar_FL,
-               inner_margin,
-               progress_y,
-               group_w - (2 * inner_margin),
-               group_h - progress_y - inner_margin, TRUE);
-
-    // Top-right
-    MoveWindow(hCurrent_FR,
-               x_mid + half_margin,
-               margin,
-               parent_w - (x_mid + half_margin) - margin,
-               y_mid - margin - half_margin,
-               TRUE);
-
-    // Bottom-left
-    MoveWindow(hCurrent_RL,
-               margin,
-               y_mid + half_margin,
-               x_mid - margin - half_margin,
-               parent_h - (y_mid + half_margin) - margin,
-               TRUE);
-
-    // Bottom-right
-    MoveWindow(hCurrent_RR,
-               x_mid + half_margin,
-               y_mid + half_margin,
-               parent_w - (x_mid + half_margin) - margin,
-               parent_h - (y_mid + half_margin) - margin,
-               TRUE);
+    // Bottom-right (RR)
+    m_displayRR.Resize(x_tr, y_bl, w_tr, h_bl);
 }

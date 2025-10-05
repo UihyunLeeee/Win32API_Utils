@@ -117,6 +117,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
+        CurrentDisplay::Cleanup(); // Clean up shared GDI resources
         PostQuitMessage(0);
         return 0;
     }
