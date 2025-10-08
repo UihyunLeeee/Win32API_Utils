@@ -118,16 +118,17 @@ bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
         WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
         0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"Bottom-Right (2,2)", 
+    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"", 
         WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
         0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    CreateSecondArea(g_hQuadrantTR, ghInst);
+    CreateSecondArea_TR(g_hQuadrantTR, ghInst);
+    CreateSecondArea_BR(g_hQuadrantBR, ghInst);
 
     return true;
 }
 
-void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
+void Monitoring::CreateSecondArea_TR(HWND hParent, HINSTANCE ghInst)
 {
     // Initialize shared resources for the CurrentDisplay class
     CurrentDisplay::Init();
@@ -139,6 +140,56 @@ void Monitoring::CreateSecondArea(HWND hParent, HINSTANCE ghInst)
     m_displayRR.Create(g_hQuadrantTR, ghInst, L"RR", 30, 160);
 }
 
+void Monitoring::CreateSecondArea_BR(HWND hParent, HINSTANCE ghInst)
+{
+    LogicOnOffButton::InitFont();
+
+    const wchar_t* buttonLabels[] = {
+        L"Speed Offset", L"Ride", L"Anti Roll",
+        L"Anti Dive", L"Anti Squat", L"Preview"
+    };
+
+    for (const auto& label : buttonLabels)
+    {
+        m_logicButtons.emplace_back(); // Create a new button object
+        m_logicButtons.back().Create(hParent, ghInst, label); // Initialize it
+    }
+}
+
+bool Monitoring::OnCommand(WPARAM wParam, LPARAM lParam)
+{
+    uhConsole::AppendTextToConsole(L"OnCommand received\r\n");
+    // Check if the command is from one of our logic buttons
+    if (HIWORD(wParam) == BN_CLICKED)
+    {
+        int clickedId = LOWORD(wParam);
+        std::wstring msg = L"Button clicked: ID " + std::to_wstring(clickedId) + L"\r\n";
+        uhConsole::AppendTextToConsole(msg.c_str());
+        for (auto& button : m_logicButtons)
+        {
+            if (button.GetId() == clickedId)
+            {
+                button.ToggleState();
+                InvalidateRect(button.GetHwnd(), NULL, TRUE);
+                return true; // Message was handled
+            }
+        }
+    }
+    return false; // Message was not handled
+}
+
+LRESULT Monitoring::OnCtlColorStatic(WPARAM wParam, LPARAM lParam)
+{
+    HWND hCtrl = (HWND)lParam;
+    for (auto& button : m_logicButtons)
+    {
+        if (button.GetHwnd() == hCtrl)
+        {
+            return button.HandleCtlColor((HDC)wParam);
+        }
+    }
+    return 0; // Indicates we didn't handle it, allows default processing
+}
 
 //void Monitoring::ReSizeWindow(int page_w, int page_h)
 void Monitoring::ReSizeWindow(const RECT rcTab)
@@ -164,34 +215,55 @@ void Monitoring::ReSizeWindow(const RECT rcTab)
     MoveWindow(g_hQuadrantBR,
                page_w / 2, page_h / 2, page_w / 2, page_h / 2, TRUE);
 
-    // Resize the current monitor display
-    RECT rcParent;
-    GetClientRect(g_hQuadrantTR, &rcParent);
-    int parent_w = rcParent.right;
-    int parent_h = rcParent.bottom;
+    // --- Resize TR Quadrant Contents (Current Displays) ---
+    {
+        RECT rcParent;
+        GetClientRect(g_hQuadrantTR, &rcParent);
+        int parent_w = rcParent.right;
+        int parent_h = rcParent.bottom;
 
-    const int margin = 10;
-    const int half_margin = margin / 2;
-    int x_mid = parent_w / 2;
-    int y_mid = parent_h / 2;
+        const int margin = 10;
+        const int half_margin = margin / 2;
+        int x_mid = parent_w / 2;
+        int y_mid = parent_h / 2;
 
-    // Calculate dimensions for the four sub-quadrants
-    int w = x_mid - margin - half_margin;
-    int h = y_mid - margin - half_margin;
+        int w = x_mid - margin - half_margin;
+        int h = y_mid - margin - half_margin;
 
-    // Top-left (FL)
-    m_displayFL.Resize(margin, margin, w, h);
+        m_displayFL.Resize(margin, margin, w, h);
 
-    // Top-right (FR)
-    int x_tr = x_mid + half_margin;
-    int w_tr = parent_w - x_tr - margin;
-    m_displayFR.Resize(x_tr, margin, w_tr, h);
+        int x_tr = x_mid + half_margin;
+        int w_tr = parent_w - x_tr - margin;
+        m_displayFR.Resize(x_tr, margin, w_tr, h);
 
-    // Bottom-left (RL)
-    int y_bl = y_mid + half_margin;
-    int h_bl = parent_h - y_bl - margin;
-    m_displayRL.Resize(margin, y_bl, w, h_bl);
+        int y_bl = y_mid + half_margin;
+        int h_bl = parent_h - y_bl - margin;
+        m_displayRL.Resize(margin, y_bl, w, h_bl);
 
-    // Bottom-right (RR)
-    m_displayRR.Resize(x_tr, y_bl, w_tr, h_bl);
+        m_displayRR.Resize(x_tr, y_bl, w_tr, h_bl);
+    }
+
+    // --- Resize BR Quadrant Contents (Buttons) ---
+    {
+        RECT rcParent;
+        GetClientRect(g_hQuadrantBR, &rcParent);
+        const int margin = 10;
+        const int spacing = 5;
+        int btn_w = (rcParent.right - (2 * margin) - (2 * spacing)) / 3;
+        int btn_h = (rcParent.bottom - (2 * margin) - spacing) / 2;
+
+        int y1 = margin;
+        int y2 = margin + btn_h + spacing;
+        int x1 = margin;
+        int x2 = margin + btn_w + spacing;
+        int x3 = margin + 2 * (btn_w + spacing);
+
+        m_logicButtons[0].Resize(x1, y1, btn_w, btn_h);
+        m_logicButtons[1].Resize(x2, y1, btn_w, btn_h);
+        m_logicButtons[2].Resize(x3, y1, btn_w, btn_h);
+
+        m_logicButtons[3].Resize(x1, y2, btn_w, btn_h);
+        m_logicButtons[4].Resize(x2, y2, btn_w, btn_h);
+        m_logicButtons[5].Resize(x3, y2, btn_w, btn_h);
+    }
 }

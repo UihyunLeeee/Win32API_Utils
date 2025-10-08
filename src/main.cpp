@@ -4,8 +4,9 @@
 #include <string> // For std::wstring
 
 #include "SpeedOffset.h"
-#include "Monitoring.h"
 #include "uhConsole.h"
+#include "Monitoring.h"
+#include "LogicOnOffButton.h"
 
 // Main Winddow Function Declarations 
 HINSTANCE ghInst;
@@ -21,6 +22,8 @@ HWND g_hTab; // Handle to the tab control
 
 const int NUM_TABS = 5;
 HWND g_hCurrentPage; 
+
+HBRUSH g_hGrayBrush = CreateSolidBrush(RGB(240, 240, 240)); // Default button face color
 
 Monitoring monitoring; 
 
@@ -116,8 +119,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         OnNotify(hWnd, lParam);
         return 0;
 
-    case WM_DESTROY:
+    case WM_COMMAND:
+        // Delegate command handling to the monitoring object
+        uhConsole::AppendTextToConsole(L"WM_COMMAND received_Main\r\n");
+        if (monitoring.OnCommand(wParam, lParam)) 
+        {                         
+            return 0; // Message was handled
+        }
+        // Potentially handle other commands here later
+        break;
+
+    case WM_CTLCOLORSTATIC: // Buttons send this, not WM_CTLCOLORBTN
+        {
+            // Delegate color handling to the monitoring object
+            LRESULT result = monitoring.OnCtlColorStatic(wParam, lParam);
+            if (result != 0) {
+                return result; // Message was handled
+            }
+        }
+        break;
+
+    case WM_NCDESTROY:
+        // This is the last message a window receives.
+        // It's the safest place to clean up GDI resources that were shared
+        // with child controls, as all children have been destroyed by this point.
+        DeleteObject(g_hGrayBrush);
         CurrentDisplay::Cleanup(); // Clean up shared GDI resources
+        LogicOnOffButton::CleanupFont(); // Clean up button fonts
+        return 0;
+
+    case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
     }

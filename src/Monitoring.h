@@ -1,5 +1,8 @@
 #include <windows.h>
 #include <commctrl.h>
+#include <vector>
+#include "LogicOnOffButton.h"
+#include "uhConsole.h" 
 
 class CurrentDisplay 
 {
@@ -27,10 +30,23 @@ public:
     // Main Quad windows handles
     HWND g_hQuadrantTL, g_hQuadrantTR, g_hQuadrantBL, g_hQuadrantBR;
 
+    std::vector<LogicOnOffButton> m_logicButtons;
+
     CurrentDisplay m_displayFL, m_displayFR, m_displayRL, m_displayRR;
 
+    Monitoring() : hPage(NULL), g_hQuadrantTL(NULL), g_hQuadrantTR(NULL),
+                   g_hQuadrantBL(NULL), g_hQuadrantBR(NULL)
+    { /* Vector will be populated in CreateSecondArea_BR */ }
+
     bool CreateControlTab(HWND hParent, HINSTANCE ghInst);
-    void CreateSecondArea(HWND hParent, HINSTANCE ghInst);
-    //void ReSizeWindow(int page_w, int page_h);
+    //void CreateSecondArea_TL(HWND hParent, HINSTANCE ghInst);
+    void CreateSecondArea_TR(HWND hParent, HINSTANCE ghInst);
+    //void CreateSecondArea_BL(HWND hParent, HINSTANCE ghInst);
+    void CreateSecondArea_BR(HWND hParent, HINSTANCE ghInst); // NOLINT
+
+    // Message Handlers
+    bool OnCommand(WPARAM wParam, LPARAM lParam);
+    LRESULT OnCtlColorStatic(WPARAM wParam, LPARAM lParam);
+
     void ReSizeWindow(const RECT rcPage);
 };
