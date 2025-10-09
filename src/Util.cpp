@@ -101,4 +101,4 @@ void ConsoleDebugger::PrintErrorMsg(const wchar_t* message) const
 
 /**************** Global Instance ****************/
 
-//ConsoleDebugger debugger;
+ConsoleDebugger debugger;

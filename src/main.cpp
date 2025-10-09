@@ -121,7 +121,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
         // Delegate command handling to the monitoring object
-        //uhConsole::AppendTextToConsole(L"WM_COMMAND received_Main\r\n");
         if (monitoring.OnCommand(wParam, lParam)) 
         {                         
             return 0; // Message was handled
