@@ -158,13 +158,13 @@ void Monitoring::CreateSecondArea_BR(HWND hParent, HINSTANCE ghInst)
 
 bool Monitoring::OnCommand(WPARAM wParam, LPARAM lParam)
 {
-    uhConsole::AppendTextToConsole(L"OnCommand received\r\n");
+    //uhConsole::AppendTextToConsole(L"OnCommand received\r\n");
     // Check if the command is from one of our logic buttons
     if (HIWORD(wParam) == BN_CLICKED)
     {
         int clickedId = LOWORD(wParam);
         std::wstring msg = L"Button clicked: ID " + std::to_wstring(clickedId) + L"\r\n";
-        uhConsole::AppendTextToConsole(msg.c_str());
+        //uhConsole::AppendTextToConsole(msg.c_str());
         for (auto& button : m_logicButtons)
         {
             if (button.GetId() == clickedId)
