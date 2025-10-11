@@ -3,10 +3,15 @@
 
 class LogicOnOffButton
 {
+public:
+    typedef void (*ClickCallback)(void *context, bool isOn);
+
 private:
     HWND m_hWnd;
     bool m_bIsOn;
     int m_nControlId;
+    ClickCallback m_onClick;
+    void* m_pContext;
     static int s_nNextControlId;
 
 public:
@@ -23,6 +28,9 @@ public:
     bool IsOn() const;
     int GetId() const;
     HWND GetHwnd() const;
+
+    void SetOnClick(ClickCallback func, void* context);     
+    void HandleClick();
 
     LRESULT HandleCtlColor(HDC hdc);
 };

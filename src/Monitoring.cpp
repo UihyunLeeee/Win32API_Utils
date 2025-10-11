@@ -1,103 +1,10 @@
 #include "Monitoring.h"
 #include <CommCtrl.h>
 
-// Define the static members of CurrentDisplay
-HFONT CurrentDisplay::s_hGroupBoxFont = NULL;
-HFONT CurrentDisplay::s_hValueFont = NULL;
-
-void CurrentDisplay::Init()
-{
-    // Create a larger font for the group boxes.
-    if (!s_hGroupBoxFont)
-    {
-        LOGFONTW lf = {0};
-        HFONT hDefaultFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        if (hDefaultFont)
-        {
-            GetObjectW(hDefaultFont, sizeof(LOGFONTW), &lf);
-        }
-        else
-        {
-            wcscpy_s(lf.lfFaceName, L"Segoe UI");
-        }
-        lf.lfHeight = -40; // Tweak this value for desired size
-        lf.lfWeight = FW_BOLD;
-        s_hGroupBoxFont = CreateFontIndirectW(&lf);
-    }
-    // Create a font for the value displays.
-    if (!s_hValueFont)
-    {
-        LOGFONTW lf = {0};
-        HFONT hDefaultFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        if (hDefaultFont)
-        {
-            GetObjectW(hDefaultFont, sizeof(LOGFONTW), &lf);
-        }
-        else
-        {
-            wcscpy_s(lf.lfFaceName, L"Segoe UI");
-        }
-        lf.lfHeight = -40; // Tweak this value for desired size
-        lf.lfWeight = FW_BOLD;
-        s_hValueFont = CreateFontIndirectW(&lf);
-    }
-}
-
-void CurrentDisplay::Cleanup()
-{
-    if (s_hGroupBoxFont) DeleteObject(s_hGroupBoxFont);
-    if (s_hValueFont) DeleteObject(s_hValueFont);
-}
-
-void CurrentDisplay::Create(HWND hParent, HINSTANCE hInst, 
-    const wchar_t *title, int progressMin, int progressMax)
-{
-    hGroupBox = CreateWindowExW(0, L"BUTTON", title,
-                                WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                0, 0, 0, 0, hParent, NULL, hInst, NULL);
-
-    if (s_hGroupBoxFont)
-        SendMessage(hGroupBox, WM_SETFONT, (WPARAM)s_hGroupBoxFont, TRUE);
-
-    hValueDisplay = CreateWindowExW(0, L"STATIC", L"0.30 A",
-                                    WS_CHILD | WS_VISIBLE | SS_CENTER,
-                                    0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
-
-    if (s_hValueFont)
-        SendMessage(hValueDisplay, WM_SETFONT, (WPARAM)s_hValueFont, TRUE);
-
-    hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
-                                   WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
-                                   0, 0, 0, 0, hGroupBox, NULL, hInst, NULL);
-
-    SendMessage(hProgressBar, PBM_SETRANGE32, progressMin, progressMax);
-    SendMessage(hProgressBar, PBM_SETPOS, progressMin, 0);
-}
-
-void CurrentDisplay::Resize(int x, int y, int w, int h)
-{
-    MoveWindow(hGroupBox, x, y, w, h, TRUE);
-
-    RECT rcGroup;
-    GetClientRect(hGroupBox, &rcGroup);
-    int group_w = rcGroup.right;
-    int group_h = rcGroup.bottom;
-
-    const int inner_margin = 10;
-    const int label_h = 50;
-    const int spacing = 5;
-    const int top_offset = 50;
-
-    MoveWindow(hValueDisplay, inner_margin, top_offset,
-               group_w - (2 * inner_margin), label_h, TRUE);
-
-    int progress_y = top_offset + label_h + spacing;
-    MoveWindow(hProgressBar, inner_margin, progress_y,
-               group_w - (2 * inner_margin),
-               group_h - progress_y - inner_margin, TRUE);
-}
-
-/********************************************************************/
+LRESULT CALLBACK QuadrantSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+WNDPROC pfnOrigQuadrantProc = NULL;
+HBRUSH g_hBlueBrush = CreateSolidBrush(RGB(220, 230, 255));
+bool g_bQuadrantClicked = false;
 
 bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
 {
@@ -107,20 +14,22 @@ bool Monitoring::CreateControlTab(HWND hParent, HINSTANCE ghInst)
 
     // Create four static controls to act as the quadrants.
     g_hQuadrantTL = CreateWindowExW(0, L"STATIC", L"Motion Display Window",
-        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
-        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+                                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
+                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantTR = CreateWindowExW(0, L"STATIC", L"", 
-        WS_CHILD | WS_VISIBLE | WS_BORDER, 
-        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantTR = CreateWindowExW(0, L"STATIC", L"",
+                                    WS_CHILD | WS_VISIBLE | WS_BORDER,
+                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantBL = CreateWindowExW(0, L"STATIC", L"Bottom-Left (2,1)", 
-        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
-        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantBL = CreateWindowExW(0, L"STATIC", L"Bottom-Left (2,1)",
+                                    WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER,
+                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
 
-    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"", 
-        WS_CHILD | WS_VISIBLE | SS_CENTER | WS_BORDER, 
-        0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+    g_hQuadrantBR = CreateWindowExW(0, L"STATIC", L"",
+                                    WS_CHILD | WS_VISIBLE | SS_CENTER | SS_NOTIFY | WS_BORDER,
+                                    0, 0, 0, 0, hPage, NULL, ghInst, NULL);
+
+    SetWindowSubclass(g_hQuadrantBR, QuadrantSubclassProc, 1, (DWORD_PTR)this);
 
     CreateSecondArea_TR(g_hQuadrantTR, ghInst);
     CreateSecondArea_BR(g_hQuadrantBR, ghInst);
@@ -132,7 +41,7 @@ void Monitoring::CreateSecondArea_TR(HWND hParent, HINSTANCE ghInst)
 {
     // Initialize shared resources for the CurrentDisplay class
     CurrentDisplay::Init();
-    
+
     // Create the four current display controls inside the top-right quadrant
     m_displayFL.Create(g_hQuadrantTR, ghInst, L"FL", 30, 160);
     m_displayFR.Create(g_hQuadrantTR, ghInst, L"FR", 30, 160);
@@ -144,64 +53,77 @@ void Monitoring::CreateSecondArea_BR(HWND hParent, HINSTANCE ghInst)
 {
     LogicOnOffButton::InitFont();
 
-    const wchar_t* buttonLabels[] = {
+    const wchar_t *buttonLabels[] = {
         L"Speed Offset", L"Ride", L"Anti Roll",
-        L"Anti Dive", L"Anti Squat", L"Preview"
-    };
+        L"Anti Dive", L"Anti Squat", L"Preview"};
 
-    for (const auto& label : buttonLabels)
+    for (const auto &label : buttonLabels)
     {
-        m_logicButtons.emplace_back(); // Create a new button object
+        m_logicButtons.emplace_back();                        // Create a new button object
         m_logicButtons.back().Create(hParent, ghInst, label); // Initialize it
     }
 }
 
-bool Monitoring::OnCommand(WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK QuadrantSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
-    // Check if the command is from one of our logic buttons
-    if (HIWORD(wParam) == BN_CLICKED)
+    switch (uMsg)
     {
-        int clickedId = LOWORD(wParam);
-        for (auto& button : m_logicButtons)
-        {
-            if (button.GetId() == clickedId)
-            {
-                button.ToggleState();
-                InvalidateRect(button.GetHwnd(), NULL, TRUE);
-                return true; // Message was handled
-            }
-        }
+
+    case WM_COMMAND:
+    {
+        debugger.PrintErrorMsg(L"QuadrantSubclassProc: WM_COMMAND");
     }
-    return false; // Message was not handled
+
+    case WM_LBUTTONDOWN:
+    {
+        debugger.PrintErrorMsg(L"QuadrantSubclassProc: WM_LBUTTONDOWN");
+        g_bQuadrantClicked = !g_bQuadrantClicked; // Toggle state
+
+        if (g_bQuadrantClicked)
+        {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, RGB(0, 0, 128));
+            SetBkMode(hdcStatic, TRANSPARENT);
+            return (LRESULT)g_hBlueBrush;
+        }
+
+        uhConsole::AppendTextToConsole(L"Bottom-right quadrant clicked!\r\n");
+        InvalidateRect(hWnd, NULL, TRUE);
+        return 0; // We handled this message
+    }
+
+    case WM_CTLCOLORSTATIC:
+    {
+        if (g_bQuadrantClicked)
+        {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, RGB(0, 0, 128));
+            SetBkMode(hdcStatic, TRANSPARENT);
+            return (LRESULT)g_hBlueBrush;
+        }
+        // If not clicked, fall through to default processing
+    }
+    break;
+    }
+    // For any other messages, pass them to the next subclass or the original window procedure.
+    return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
-LRESULT Monitoring::OnCtlColorStatic(WPARAM wParam, LPARAM lParam)
-{
-    HWND hCtrl = (HWND)lParam;
-    for (auto& button : m_logicButtons)
-    {
-        if (button.GetHwnd() == hCtrl)
-        {
-            return button.HandleCtlColor((HDC)wParam);
-        }
-    }
-    return 0; // Indicates we didn't handle it, allows default processing
-}
-
-//void Monitoring::ReSizeWindow(int page_w, int page_h)
+// void Monitoring::ReSizeWindow(int page_w, int page_h)
 void Monitoring::ReSizeWindow(const RECT rcTab)
 {
     // Resize the current page container to fit the tab display area.
     MoveWindow(hPage, rcTab.left, rcTab.top,
                rcTab.right - rcTab.left, rcTab.bottom - rcTab.top, TRUE);
 
-    // Get the dimensions of the page content area to pass to the page-specific resize function.
+    // Get the dimensions of the page content area to pass to
+    // the page-specific resize function.
     RECT rcPage;
     GetClientRect(hPage, &rcPage);
 
     int page_w = rcPage.right - rcPage.left;
     int page_h = rcPage.bottom - rcPage.top;
-    
+
     // Resize the four main quadrant windows
     MoveWindow(g_hQuadrantTL,
                0, 0, page_w / 2, page_h / 2, TRUE);

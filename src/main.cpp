@@ -3,12 +3,13 @@
 
 #include <string> // For std::wstring
 
+#include "Util.h"
 #include "SpeedOffset.h"
 #include "uhConsole.h"
 #include "Monitoring.h"
 #include "LogicOnOffButton.h"
 
-// Main Winddow Function Declarations 
+// Main Winddow Function Declarations
 HINSTANCE ghInst;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void OnSize(HWND hwnd, UINT state, int cx, int cy);
@@ -21,11 +22,11 @@ HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst);
 HWND g_hTab; // Handle to the tab control
 
 const int NUM_TABS = 5;
-HWND g_hCurrentPage; 
+HWND g_hCurrentPage;
 
 HBRUSH g_hGrayBrush = CreateSolidBrush(RGB(240, 240, 240)); // Default button face color
 
-Monitoring monitoring; 
+Monitoring monitoring;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                     PWSTR pCmdLine, int nShowCmd)
@@ -49,7 +50,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if (!RegisterClassW(&wc))
     {
         MessageBoxW(NULL, L"Window Registration Failed!", L"Error",
-            MB_ICONERROR | MB_OK);
+                    MB_ICONERROR | MB_OK);
         return 0;
     }
 
@@ -61,7 +62,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if (hWnd == NULL)
     {
         MessageBoxW(NULL, L"Window Creation Failed!", L"Error",
-            MB_ICONERROR | MB_OK);
+                    MB_ICONERROR | MB_OK);
         return 0;
     }
 
@@ -83,32 +84,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
     case WM_CREATE:
+    {
+        // Create the tab control and pages
+        g_hTab = CreateTabControl(hWnd, ghInst);
+        if (!g_hTab)
         {
-            // Create the tab control and pages
-            g_hTab = CreateTabControl(hWnd, ghInst);
-            if (!g_hTab) {
-                MessageBoxW(hWnd, L"Tab Control Creation Failed!", L"Error",
-                    MB_ICONERROR | MB_OK);
-                return -1;
-            }
-
-            // Create page containers (simple STATIC windows)
-            monitoring.CreateControlTab(hWnd, ghInst);
-
-            g_hCurrentPage = monitoring.hPage; // Start with Monitoring tab
-            ShowWindow(g_hCurrentPage, SW_SHOW);
-
-            // Create the console window, parented to the main window.
-            // It will be positioned in OnSize.
-            uhConsole::CreateConsoleTab(hWnd, ghInst);
-            if(!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput )
-            {
-                MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
-                    MB_ICONERROR | MB_OK);
-                return -1;
-            }
-            uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
+            MessageBoxW(hWnd, L"Tab Control Creation Failed!", L"Error",
+                        MB_ICONERROR | MB_OK);
+            return -1;
         }
+
+        // Create page containers (simple STATIC windows)
+        monitoring.CreateControlTab(hWnd, ghInst);
+
+        g_hCurrentPage = monitoring.hPage; // Start with Monitoring tab
+        ShowWindow(g_hCurrentPage, SW_SHOW);
+
+        // Create the console window, parented to the main window.
+        // It will be positioned in OnSize.
+        uhConsole::CreateConsoleTab(hWnd, ghInst);
+        if (!uhConsole::hConsoleOutput || !uhConsole::hConsoleInput)
+        {
+            MessageBoxW(hWnd, L"Console Creation Failed!", L"Error",
+                        MB_ICONERROR | MB_OK);
+            return -1;
+        }
+        uhConsole::AppendTextToConsole(L"Console Debugger is initialized successfully.\r\n");
+    }
         return 0;
 
     case WM_SIZE:
@@ -119,31 +121,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         OnNotify(hWnd, lParam);
         return 0;
 
-    case WM_COMMAND:
-        // Delegate command handling to the monitoring object
-        if (monitoring.OnCommand(wParam, lParam)) 
-        {                         
-            return 0; // Message was handled
-        }
-        // Potentially handle other commands here later
-        break;
-
-    case WM_CTLCOLORSTATIC: // Buttons send this, not WM_CTLCOLORBTN
-        {
-            // Delegate color handling to the monitoring object
-            LRESULT result = monitoring.OnCtlColorStatic(wParam, lParam);
-            if (result != 0) {
-                return result; // Message was handled
-            }
-        }
-        break;
-
     case WM_NCDESTROY:
-        // This is the last message a window receives.
-        // It's the safest place to clean up GDI resources that were shared
-        // with child controls, as all children have been destroyed by this point.
         DeleteObject(g_hGrayBrush);
-        CurrentDisplay::Cleanup(); // Clean up shared GDI resources
+        CurrentDisplay::Cleanup();       // Clean up shared GDI resources
         LogicOnOffButton::CleanupFont(); // Clean up button fonts
         return 0;
 
@@ -166,13 +146,13 @@ HWND CreateTabControl(HWND hWndParent, HINSTANCE hInst)
         0, 0, rcClient.right, rcClient.bottom,
         hWndParent, NULL, hInst, NULL);
 
-    if (!hWndTab) 
+    if (!hWndTab)
         return NULL;
 
     TCITEMW tie = {};
     tie.mask = TCIF_TEXT;
 
-    const wchar_t* tabLabels[] = 
+    const wchar_t *tabLabels[] =
         {L"Current Monitoring", L"Speed Offset", L"Anti Roll", L"Anti Dive", L"Anti Squat"};
 
     for (int i = 0; i < NUM_TABS; ++i)
@@ -238,30 +218,31 @@ void OnNotify(HWND hwnd, LPARAM lParam)
 
         // --- REFACTORED: Show/Hide logic for tab pages ---
         // Hide the previously visible page
-        if (g_hCurrentPage) {
+        if (g_hCurrentPage)
+        {
             ShowWindow(g_hCurrentPage, SW_HIDE);
         }
 
         // Determine which page to show
-        if (iSel >= 0 && iSel < NUM_TABS) 
+        if (iSel >= 0 && iSel < NUM_TABS)
         {
-            switch(iSel)
+            switch (iSel)
             {
             case 0:
                 g_hCurrentPage = monitoring.hPage;
                 break;
-            //case 1:
-            //    g_hCurrentPage = hPageSpeedOffset;
-            //    break;
-            //case 2:
-            //    g_hCurrentPage = hPageAntiRoll;
-            //    break;
-            //case 3:
-            //    g_hCurrentPage = hPageAntiDive;
-            //    break;
-            //case 4:
-            //    g_hCurrentPage = hPageAntiSquat;
-            //    break;
+            // case 1:
+            //     g_hCurrentPage = hPageSpeedOffset;
+            //     break;
+            // case 2:
+            //     g_hCurrentPage = hPageAntiRoll;
+            //     break;
+            // case 3:
+            //     g_hCurrentPage = hPageAntiDive;
+            //     break;
+            // case 4:
+            //     g_hCurrentPage = hPageAntiSquat;
+            //     break;
             default:
                 g_hCurrentPage = NULL;
                 break;
@@ -272,7 +253,7 @@ void OnNotify(HWND hwnd, LPARAM lParam)
             g_hCurrentPage = NULL;
         }
 
-        if (g_hCurrentPage) 
+        if (g_hCurrentPage)
         {
             ShowWindow(g_hCurrentPage, SW_SHOW);
 
